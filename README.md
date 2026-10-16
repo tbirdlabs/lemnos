@@ -20,3 +20,9 @@ run-sim --games 4000
 Earlier prototypes are tagged in git rather than kept as folders: `v0.7` (61 tiles), `v0.8` (odds table, Mass,
 backfill), `v0.9-bases` (v0.9 with bases and experiment settings), `v0.10` (v0.10 plus the sim-tested
 settings), `v0.11` (the rules doc for that code). `git checkout v0.8` gets a runnable copy.
+
+## License
+
+- **Software** (the prototype, simulator, tests and `circuitpython/`): MIT. See [LICENSE](LICENSE).
+- **Rules** (`docs/`) and other documentation, and the board's CAD when it's added: CC BY-SA 4.0, the same as the
+  Printables listing. See [LICENSE-CC-BY-SA-4.0.txt](LICENSE-CC-BY-SA-4.0.txt).
