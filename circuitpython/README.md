@@ -7,6 +7,7 @@ controllers know nothing about Salient, and Salient knows nothing about pins or 
 | --- | --- |
 | `config.py` | **Edit this one.** LED channels, power limit, controllers (wired inputs, I2C boards, serial console), which game runs. |
 | `host.py`, `code.py` | The host: polls the controllers, runs the game, draws the frame. `code.py` starts it at power-up. |
+| `fx.py` | Light effects for any game: blink, breathe, flash, chase, with speeds; add your own. |
 | `leds.py` | The lights: 37 spots × 3 LEDs, six 10-light bars and (144 LEDs/m map) the line LEDs, mapped to the wiring in `docs/wiring.md`, with the power cap. `config.LED_MAP` picks `60_leds_per_meter` or `144_leds_per_meter`. |
 | `controls.py` | The controllers: buttons, encoders, one-switch scan, resistor ladders, I2C controller boards (`docs/controllers.md`) and the serial console, all turned into actions. |
 | `salient_game.py` | Salient as a game: setup, the play UI (cursor, row-then-spot scan, chance and roll on the bar, keep going), watching the computer. Ported from `ui.js`. |
@@ -32,7 +33,30 @@ class Game:
 
 - **Lights:** `lights.spot(t, [c0, c1, c2])` (spot t in the engine's numbering, light 0 = left as seen from seat 1),
   `lights.bar(seat, [10 colors])` (seat 1–6, light 0 = LED 1 at the player's left), `lights.line(row, k, color)`
-  (144 LEDs/m map only: the line LED k in row 0–6, 0 = the row's left end as seen from seat 1). Colors are (r, g, b).
+  (144 LEDs/m map only: the line LED k in row 0–6, 0 = the row's left end as seen from seat 1). Colors are (r, g, b),
+  each 0–255; lower values are dimmer.
+- **Effects** (`fx.py`): pass one after the colors, for the whole group or as a list with one per LED.
+
+  ```python
+  lights.spot(t, colors, fx.breathe(3))          # a 3-second breath
+  lights.bar(seat, colors, fx.blink(fx.FAST))    # named speeds: fx.SLOW 3 s, fx.NORMAL 1.5 s, fx.FAST 0.6 s
+  lights.spot(t, colors, [None, fx.flash(0.5), None])
+  ```
+
+  | Effect | Does |
+  | --- | --- |
+  | `fx.STEADY` (or no effect) | Just the color |
+  | `fx.blink(period, duty=0.5)` | On for `duty` of each cycle, off for the rest |
+  | `fx.breathe(period, low=0.3)` | Smooth fade down to `low` of full and back, never dark |
+  | `fx.flash(period, other=white, duty=0.4)` | Swaps between the color and `other` |
+  | `fx.chase(period, tail=0, reverse=False)` | One light running along the group (a bar's LED 1 to 10) once a cycle |
+
+  These are examples. To make your own, subclass `fx.Effect` and write `at(color, phase, i, n)`: phase runs 0 to 1
+  through the cycle, and i of n is the LED's place in its group. Every effect runs off the board's one clock, so
+  everything with the same effect and speed stays in step. `EFFECT_TIME_SCALE` in `config.py` slows every effect at
+  once (1.5 = 1.5x slower). Nothing that switches lights on and off (an effect with `on_off = True`, like blink and
+  flash) runs faster than 3 times a second, whatever a game asks for: faster flashing can set off photosensitive
+  seizures.
 - **Actions:** `move`, `move_back`, `pick`, `back`, `up`, `down`, `left`, `right`.
 - **Controllers:** `controller.seat` (1–6, or None if its player chooses a side), `controller.can` (the actions it
   can send; a game should offer a way out when `back` isn't there), `controller.name`.

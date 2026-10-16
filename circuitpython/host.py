@@ -5,7 +5,8 @@
 #                                board.seats = 6
 #   game.event(controller, action, now)   one action from one controller (controls.ACTIONS)
 #   game.update(now)             called every frame: timers, animations, computer players
-#   game.draw(lights, now)       draw the whole frame (every LED it wants lit); the host calls lights.show()
+#   game.draw(lights, now)       draw the whole frame (every LED it wants lit), with effects from fx.py if it likes;
+#                                the host calls lights.show()
 # Nothing in the host, leds.py or controls.py changes for a new game.
 
 import time
@@ -33,6 +34,7 @@ def run(game_name=None):
             game.event(c, a, now)
         game.update(now)
         lights.fill(leds.OFF)
+        lights.now = now
         game.draw(lights, now)
         lights.show()
         left = frame - (time.monotonic() - now)

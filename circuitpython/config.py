@@ -19,6 +19,8 @@ BRIGHTNESS = 1.0              # overall, before the power limit
 POWER_LIMIT_A = 4.0           # the LEDs' share of the 5 V supply; None = no limit (full brightness)
 MA_PER_CHANNEL = 20           # current of one color channel of one LED at full
 MA_IDLE = 1                   # current of each LED when dark
+EFFECT_TIME_SCALE = 1.0       # every light effect's cycle time is multiplied by this (1.5 = all 1.5x slower);
+                              # nothing switches lights on and off faster than 3 times a second either way
 
 # ---- Controllers ----
 # Each controller is one player's set of inputs. "seat" is where it sits (1-6), or None to choose a side when

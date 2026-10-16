@@ -8,6 +8,8 @@
 #                               the line between spot t and its right-hand neighbor is (ROW of t, its column + 1).
 #                               Does nothing on a map without line LEDs (LINES == 0).
 #   lights.fill(color), lights.show()
+# spot, bar and line also take an effect (fx.py): one for the whole group, or a list with one per LED, e.g.
+#   lights.spot(t, colors, fx.breathe(3)). Effects run off lights.now, the board's clock (the host sets it).
 # show() sends only what changed, and dims the whole frame if it would draw more than config.POWER_LIMIT_A.
 #
 # config.LED_MAP picks the island's LED map (the bars are the same on both):
@@ -91,6 +93,7 @@ class Lights:
         self.phys = PHYS
         self.pixels = None
         self.scale = 1.0
+        self.now = 0.0                           # the board's clock, for effects; the host sets it every frame
         if HARDWARE:
             pin = getattr(board, config.LED_FIRST_PIN)
             self.pixels = NeoPxl8(pin, STRAND * 8, num_strands=8, auto_write=False,
@@ -104,18 +107,26 @@ class Lights:
         self.raw[j + 1] = c[1]
         self.raw[j + 2] = c[2]
 
-    def spot(self, t, colors):
-        for i in range(PER_SPOT):
-            self._set(t * PER_SPOT + i, colors[i])
+    def _group(self, base, colors, effect, n):
+        if effect is None:
+            for i in range(n):
+                self._set(base + i, colors[i])
+            return
+        each = isinstance(effect, (list, tuple))
+        now = self.now
+        for i in range(n):
+            e = effect[i] if each else effect
+            self._set(base + i, colors[i] if e is None else e.color(colors[i], now, i, n))
 
-    def bar(self, seat, colors):
-        base = ISLAND + (seat - 1) * BAR
-        for i in range(BAR):
-            self._set(base + i, colors[i])
+    def spot(self, t, colors, effect=None):
+        self._group(t * PER_SPOT, colors, effect, PER_SPOT)
 
-    def line(self, row, k, color):
+    def bar(self, seat, colors, effect=None):
+        self._group(ISLAND + (seat - 1) * BAR, colors, effect, BAR)
+
+    def line(self, row, k, color, effect=None):
         if LINES:
-            self._set(FIRST_LINE + LINE_START[row] + k, color)
+            self._set(FIRST_LINE + LINE_START[row] + k, color if effect is None else effect.color(color, self.now))
 
     def fill(self, c):
         if c == OFF:
