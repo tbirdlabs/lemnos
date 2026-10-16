@@ -1,5 +1,5 @@
-# CircuitPython entry point (runs at power-up). For now: the bring-up benchmark, which also shows
-# each position on the LEDs. Replace with the game menu once the play UI is ported.
-import bench
+# CircuitPython entry point (runs at power-up): the game host with the game named in config.py.
+# For the bring-up benchmark instead, replace this with:  import bench; bench.main()
+import host
 
-bench.main()
+host.run()

@@ -6,7 +6,8 @@ readable from the board's lights.
 
 - `index.html` – browser prototype of the board, with a developer panel (rules settings, AI-vs-AI simulator, notes)
   behind `#debug` in the address. Open it from disk or from the IIS share.
-- `circuitpython/` – the engine and AI ported to CircuitPython for the Feather RP2040 SCORPIO (see its README).
+- `circuitpython/` – the board software for the Feather RP2040 SCORPIO: host, lights, controllers and the game (see its README).
+- `docs/wiring.md`, `docs/controllers.md` – how to wire the board, and the controller types and I2C protocol.
 - `docs/rules/` – the rules, one frozen export per version.
 - `NOTES.md` – prototype notes: file map, engine layout, settings, simulator results, difficulty and volcano tests.
 
