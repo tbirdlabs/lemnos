@@ -1,0 +1,6 @@
+# replay comparison output
+js*.txt
+py*.txt
+# compiled CircuitPython
+*.mpy
+__pycache__/
