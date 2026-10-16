@@ -18,5 +18,5 @@ run-sim --games 4000
 ## Versions
 
 Earlier prototypes are tagged in git rather than kept as folders: `v0.7` (61 tiles), `v0.8` (odds table, Mass,
-backfill), `v0.9-bases` (v0.9 with bases and experiment settings), `v0.10` (current rules plus the sim-tested
-settings). `git checkout v0.8` gets a runnable copy.
+backfill), `v0.9-bases` (v0.9 with bases and experiment settings), `v0.10` (v0.10 plus the sim-tested
+settings), `v0.11` (the rules doc for that code). `git checkout v0.8` gets a runnable copy.
