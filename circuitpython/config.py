@@ -6,6 +6,11 @@ GAME = "salient_game"
 FPS = 40                      # frames a second the host aims for
 
 # ---- LEDs ----
+# The island's LED map (docs/wiring.md); the channels, serpentine and bars are the same on both:
+#   "60_leds_per_meter"   3 LEDs on every spot (111)
+#   "144_leds_per_meter"  3 LEDs on every spot plus one under every vertical line between spots and at each row's
+#                         ends: line, spot, line, spot, ... line (155; the center row has 29)
+LED_MAP = "60_leds_per_meter"
 LED_FIRST_PIN = "NEOPIXEL0"   # NeoPXL8 drives 8 consecutive outputs starting here (NEOPIXEL0..7 on the SCORPIO)
 ISLAND_CHANNEL = 0            # 111 LEDs, serpentine from A1
 BAR_CHANNELS = (1, 2, 3, 4, 5, 6)   # the bar for seats 1..6 (seat 1 = bottom, then clockwise)

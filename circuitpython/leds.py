@@ -1,10 +1,18 @@
-# The board's lights: the island's 37 spots (3 LEDs each) and six 10-light bars, one per seat.
-# Games draw by spot and by seat; this module knows the wiring (docs/wiring.md) and nothing about any game.
+# The board's lights: the island's 37 spots (3 LEDs each), six 10-light bars (one per seat), and, on the
+# 144 LEDs/m map, one LED on every vertical line between spots (and at each row's two ends).
+# Games draw by spot, by seat and by line; this module knows the wiring (docs/wiring.md) and nothing about any game.
 #   lights.spot(t, colors)      3 (r, g, b) for spot t (the engine's numbering: row by row from A1, left to right
 #                               as seen from seat 1); light 0 is the left one, as seen from seat 1
 #   lights.bar(seat, colors)    10 (r, g, b) for seat 1-6; light 0 is LED 1, at the player's left
+#   lights.line(row, k, color)  the line LED k (0 = the row's left end, as seen from seat 1) in row 0-6 (A-G);
+#                               the line between spot t and its right-hand neighbor is (ROW of t, its column + 1).
+#                               Does nothing on a map without line LEDs (LINES == 0).
 #   lights.fill(color), lights.show()
 # show() sends only what changed, and dims the whole frame if it would draw more than config.POWER_LIMIT_A.
+#
+# config.LED_MAP picks the island's LED map (the bars are the same on both):
+#   "60_leds_per_meter"   3 LEDs a spot: rows of 12, 15, 18, 21, 18, 15, 12 LEDs (111)
+#   "144_leds_per_meter"  a line LED, a spot's 3, a line LED, ... a line LED: rows of 17, 21, 25, 29, 25, 21, 17 (155)
 
 import config
 
@@ -13,10 +21,59 @@ PER_SPOT = 3
 SEATS = 6
 BAR = 10
 ROW_LENGTHS = (4, 5, 6, 7, 6, 5, 4)
-ISLAND = SPOTS * PER_SPOT            # 111
-COUNT = ISLAND + SEATS * BAR         # 171 logical LEDs
-STRAND = ISLAND                      # NeoPXL8 gives every channel the same length
 OFF = (0, 0, 0)
+MAPS = ("60_leds_per_meter", "144_leds_per_meter")
+
+
+def layout(name):
+    """For an LED map: (island LEDs on the strip, line LEDs, PHYS) where PHYS[k] is the NeoPXL8 buffer index of
+    logical LED k. Logical order: spots (37 x 3), then bars (6 x 10), then lines (row by row, left to right)."""
+    if name not in MAPS:
+        raise ValueError("config.LED_MAP must be one of %s" % (MAPS,))
+    lines = name == "144_leds_per_meter"
+    nlines = sum(n + 1 for n in ROW_LENGTHS) if lines else 0
+    island = sum(n * PER_SPOT + (n + 1 if lines else 0) for n in ROW_LENGTHS)
+    strand = island                              # NeoPXL8 gives every channel the same length
+    phys = [0] * (SPOTS * PER_SPOT + SEATS * BAR + nlines)
+    base = config.ISLAND_CHANNEL * strand
+    first_line = SPOTS * PER_SPOT + SEATS * BAR
+    t = 0
+    ln = 0
+    pos = base
+    for r, n in enumerate(ROW_LENGTHS):
+        right = r % 2 == 0                       # A, C, E, G run right; B, D, F run left
+        run = []                                 # this row's logical LEDs, left to right as seen from seat 1
+        for c in range(n):
+            if lines:
+                run.append(first_line + ln + c)
+            for i in range(PER_SPOT):
+                run.append((t + c) * PER_SPOT + i)
+        if lines:
+            run.append(first_line + ln + n)
+        if not right:
+            run.reverse()
+        for k in run:
+            phys[k] = pos
+            pos += 1
+        t += n
+        ln += n + 1 if lines else 0
+    for s in range(SEATS):
+        b = config.BAR_CHANNELS[s] * strand
+        for i in range(BAR):
+            phys[SPOTS * PER_SPOT + s * BAR + i] = b + i
+    return island, nlines, phys
+
+
+ISLAND_LEDS, LINES, PHYS = layout(config.LED_MAP)
+STRAND = ISLAND_LEDS
+ISLAND = SPOTS * PER_SPOT                # first logical bar LED
+FIRST_LINE = ISLAND + SEATS * BAR
+COUNT = FIRST_LINE + LINES               # 171 or 215 logical LEDs
+LINE_START = []
+_n = 0
+for _len in ROW_LENGTHS:
+    LINE_START.append(_n)
+    _n += _len + 1
 _DARK = bytes(COUNT * 3)
 
 try:
@@ -27,33 +84,11 @@ except ImportError:                  # desktop Python: lights are kept in memory
     HARDWARE = False
 
 
-def _physical_map():
-    """PHYS[k] = index in the NeoPXL8 buffer of logical LED k."""
-    phys = [0] * COUNT
-    base = config.ISLAND_CHANNEL * STRAND
-    t = 0
-    pos = 0
-    for r, n in enumerate(ROW_LENGTHS):
-        right = r % 2 == 0                       # A, C, E, G run right; B, D, F run left
-        for c in range(n):
-            spot = t + c
-            k = c if right else n - 1 - c        # this spot's place along the run
-            for i in range(PER_SPOT):
-                phys[spot * PER_SPOT + i] = base + pos + k * PER_SPOT + (i if right else PER_SPOT - 1 - i)
-        t += n
-        pos += n * PER_SPOT
-    for s in range(SEATS):
-        b = config.BAR_CHANNELS[s] * STRAND
-        for i in range(BAR):
-            phys[ISLAND + s * BAR + i] = b + i
-    return phys
-
-
 class Lights:
     def __init__(self):
         self.raw = bytearray(COUNT * 3)          # what the game drew this frame
         self.sent = bytearray(COUNT * 3)         # what the LEDs show
-        self.phys = _physical_map()
+        self.phys = PHYS
         self.pixels = None
         self.scale = 1.0
         if HARDWARE:
@@ -77,6 +112,10 @@ class Lights:
         base = ISLAND + (seat - 1) * BAR
         for i in range(BAR):
             self._set(base + i, colors[i])
+
+    def line(self, row, k, color):
+        if LINES:
+            self._set(FIRST_LINE + LINE_START[row] + k, color)
 
     def fill(self, c):
         if c == OFF:

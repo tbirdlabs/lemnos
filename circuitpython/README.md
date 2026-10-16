@@ -7,7 +7,7 @@ controllers know nothing about Salient, and Salient knows nothing about pins or 
 | --- | --- |
 | `config.py` | **Edit this one.** LED channels, power limit, controllers (wired inputs, I2C boards, serial console), which game runs. |
 | `host.py`, `code.py` | The host: polls the controllers, runs the game, draws the frame. `code.py` starts it at power-up. |
-| `leds.py` | The lights: 37 spots × 3 LEDs and six 10-light bars, mapped to the wiring in `docs/wiring.md`, with the power cap. |
+| `leds.py` | The lights: 37 spots × 3 LEDs, six 10-light bars and (144 LEDs/m map) the line LEDs, mapped to the wiring in `docs/wiring.md`, with the power cap. `config.LED_MAP` picks `60_leds_per_meter` or `144_leds_per_meter`. |
 | `controls.py` | The controllers: buttons, encoders, one-switch scan, resistor ladders, I2C controller boards (`docs/controllers.md`) and the serial console, all turned into actions. |
 | `salient_game.py` | Salient as a game: setup, the play UI (cursor, row-then-spot scan, chance and roll on the bar, keep going), watching the computer. Ported from `ui.js`. |
 | `engine.py` | Rules engine, a line-for-line port of `engine.js`. No hardware. Integers only. |
@@ -31,7 +31,8 @@ class Game:
 ```
 
 - **Lights:** `lights.spot(t, [c0, c1, c2])` (spot t in the engine's numbering, light 0 = left as seen from seat 1),
-  `lights.bar(seat, [10 colors])` (seat 1–6, light 0 = LED 1 at the player's left). Colors are (r, g, b).
+  `lights.bar(seat, [10 colors])` (seat 1–6, light 0 = LED 1 at the player's left), `lights.line(row, k, color)`
+  (144 LEDs/m map only: the line LED k in row 0–6, 0 = the row's left end as seen from seat 1). Colors are (r, g, b).
 - **Actions:** `move`, `move_back`, `pick`, `back`, `up`, `down`, `left`, `right`.
 - **Controllers:** `controller.seat` (1–6, or None if its player chooses a side), `controller.can` (the actions it
   can send; a game should offer a way out when `back` isn't there), `controller.name`.
