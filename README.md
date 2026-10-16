@@ -4,7 +4,7 @@ A light-up island strategy game for a hex LED board, by Thunderbird Labs. Built 
 PlayforAll brief: playable with one switch, a pedal, three buttons or a D-pad, and everything the game knows is
 readable from the board's lights.
 
-- `index.html` – browser prototype of the board, with a developer panel (rules settings, AI-vs-AI simulator, notes)
+- `index.html` – browser prototype of the board (Invasion, Defender and Island Rush, all six seats), with a developer panel (rules settings, AI-vs-AI simulator, notes)
   behind `#debug` in the address. Open it from disk or from the IIS share.
 - `circuitpython/` – the board software for the Feather RP2040 SCORPIO: host, lights, controllers and the game (see its README).
 - `docs/wiring.md`, `docs/controllers.md` – how to wire the board, and the controller types and I2C protocol.
@@ -15,6 +15,8 @@ readable from the board's lights.
 run-tests
 run-sim --games 4000
 ```
+
+Island Rush: `sim-rush.js` (AI-vs-AI by player count). Browser UI: `test-ui.js`. Board UI: `py -3 circuitpython/test_board.py`.
 
 ## Versions
 
