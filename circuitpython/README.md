@@ -8,6 +8,7 @@ controllers know nothing about Salient, and Salient knows nothing about pins or 
 | `config.py` | **Edit this one.** LED channels, power limit, controllers (wired inputs, I2C boards, serial console), which game runs. |
 | `host.py`, `code.py` | The host: polls the controllers, runs the game, draws the frame. `code.py` starts it at power-up. |
 | `fx.py` | Light effects for any game: blink, breathe, flash, chase, with speeds; add your own. |
+| `dice.py` | The die roller for any game: a light runs along a bar and slows to stop on the result. |
 | `leds.py` | The lights: 37 spots × 3 LEDs, six 10-light bars and (144 LEDs/m map) the line LEDs, mapped to the wiring in `docs/wiring.md`, with the power cap. `config.LED_MAP` picks `60_leds_per_meter` or `144_leds_per_meter`. |
 | `controls.py` | The controllers: buttons, encoders, one-switch scan, resistor ladders, I2C controller boards (`docs/controllers.md`) and the serial console, all turned into actions. |
 | `salient_game.py` | Salient as a game: setup, the play UI (cursor, row-then-spot scan, chance and roll on the bar, keep going), watching the computer. Ported from `ui.js`. |
@@ -57,11 +58,22 @@ class Game:
   once (1.5 = 1.5x slower). Nothing that switches lights on and off (an effect with `on_off = True`, like blink and
   flash) runs faster than 3 times a second, whatever a game asks for: faster flashing can set off photosensitive
   seizures.
+- **Die roller** (`dice.py`): shows a roll on a seat's bar. The game decides the result (its own seeded random
+  numbers, or `dice.d(n)`); the roller only animates it.
+
+  ```python
+  roll = dice.Roll(now, result)                 # result 1-10; runs LED 1-10 once, then slows to stop on the result
+  roll.duration                                 # seconds until it has landed and held: schedule what comes next
+  roll.draw(lights, seat, background)           # each frame: the running light over the bar's 10 colors
+  ```
+
+  `Roll(now, result, n=10, laps=1, color=white)`; `roll.done(now)`, `roll.position(now)`. Timing follows
+  `EFFECT_TIME_SCALE`.
 - **Actions:** `move`, `move_back`, `pick`, `back`, `up`, `down`, `left`, `right`.
 - **Controllers:** `controller.seat` (1–6, or None if its player chooses a side), `controller.can` (the actions it
   can send; a game should offer a way out when `back` isn't there), `controller.name`.
 
-Nothing in `host.py`, `leds.py` or `controls.py` changes for a new game.
+Nothing in `host.py`, `leds.py`, `controls.py`, `fx.py` or `dice.py` changes for a new game.
 
 ## Salient on the board
 
