@@ -1,5 +1,5 @@
 # CircuitPython entry point (runs at power-up): the game host with the game named in config.py.
-# For the bring-up benchmark instead, replace this with:  import bench; bench.main()
-import host
+# For the Salient bring-up benchmark instead, replace this with:  from games.salient import bench; bench.main()
+from gamehost import host
 
 host.run()

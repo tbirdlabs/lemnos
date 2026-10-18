@@ -6,8 +6,9 @@
 #   roll.done(now)                              # True once it has landed and held
 #   roll.duration                               # seconds from start to done (to schedule what comes next)
 #
-# dice.d(n) rolls 1..n for games that don't keep their own random numbers (Salient uses the engine's seeded d10,
-# so games replay exactly). The timing follows config.EFFECT_TIME_SCALE, like every effect.
+# dice.d(n) rolls 1..n for games that don't keep their own random numbers. dice.seed() is a random 32-bit number
+# to start a game's own generator with (Salient seeds its engine's d10 with it, so a game can be replayed from its
+# seed). The timing follows config.EFFECT_TIME_SCALE, like every effect.
 
 import config
 
@@ -26,6 +27,17 @@ def d(n):
     except Exception:
         import random
         return random.randint(1, n)
+
+
+def seed():
+    """A random number 0..2**32-1, to seed a game's own random numbers."""
+    try:
+        import os
+        b = os.urandom(4)
+        return (b[0] | b[1] << 8 | b[2] << 16 | b[3] << 24) & 0xFFFFFFFF
+    except Exception:
+        import time
+        return int(time.monotonic() * 1000) & 0xFFFFFFFF
 
 
 class Roll:

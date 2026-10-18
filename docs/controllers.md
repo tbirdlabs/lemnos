@@ -7,10 +7,13 @@ from. It only knows which controller sent it, and which actions that controller 
 
 Controllers are listed in `circuitpython/config.py`. Three kinds of source feed them:
 
-- **Wired inputs** on the SCORPIO's free pins (17 of them; see [wiring.md](wiring.md)).
+- **Wired inputs** on the SCORPIO's free pins (17 of them; see [wiring.md](wiring.md)): `gamehost/inputs.py`.
 - **Outboard controller boards** on the I2C bus (an ESP32 with Bluepad32 for Bluetooth gamepads, a Pico reading a
-  switch box, and so on), chained on the STEMMA QT port.
-- **The USB serial console**, for testing: up to 6 virtual controllers.
+  switch box, and so on), chained on the STEMMA QT port: the `"i2c"` hub in `gamehost/hubs.py`.
+- **The USB serial console**, for testing: up to 6 virtual controllers: the `"console"` hub.
+
+`CONTROLLER_HUBS` in `config.py` lists the hubs to start; take one out to turn it off. Games see none of this, only
+controllers and actions ([making-games.md](making-games.md)).
 
 ## Wired inputs
 
@@ -37,8 +40,15 @@ The default, a rotary encoder and one button:
 A controller without back (a single switch, say) still works: the game adds a way-out stop to each scan, so
 picking it does what back would.
 
-To add a new kind of input, write a class in `controls.py` with `can` (the set of actions it can give) and
-`poll(now, emit)`, and add it to `SOURCES`.
+To add a new kind of input, write a class with `can` (the set of actions it can give) and `poll(now, emit)` (call
+`emit(action)` for each action since the last poll), made from its line in `config.py` as a dict. Put it in its own
+file on CIRCUITPY and use `"file.Class"` as its type, e.g. `{"type": "footpedal.Pedal", "pin": "A3"}`; or add it to
+`INPUTS` in `gamehost/inputs.py`. The classes there are the examples to copy.
+
+A source that brings any number of controllers of its own (Bluetooth straight to the board, say) is a hub: a class
+made with the `Controls`, with `poll(now, emit)` calling `emit(controller, action)`, getting its controllers from
+`controls.get(id, name, seat, can)` and calling `controls.remove(controller)` when one goes away. Name it in
+`CONTROLLER_HUBS` the same way.
 
 ## I2C controller boards (protocol v1)
 
@@ -71,7 +81,7 @@ next time. A board answering with anything other than version 1 in byte 0 is ign
 | 7 | left |
 | 8 | right |
 | 9 | This pad is a single switch (no back); send once when it connects |
-| 15 | This pad disconnected |
+| 15 | This pad disconnected (the game hears `controller_removed`; the pad's next event brings it back) |
 | 0, 10–14 | Reserved |
 
 How a board maps its buttons is up to the board. For a gamepad, the suggested mapping is: D-pad or left stick =

@@ -1,19 +1,29 @@
 # Board hardware settings. Edit this file to match the wiring; nothing else needs to change.
 # See docs/wiring.md (LED channels, seats, free pins) and docs/controllers.md (input types, I2C protocol).
+# Drivers, inputs and hubs can be your own: name them "module.Name" (gamehost/plugins.py).
 
-# ---- Which game runs at power-up (a module with a Game class; see README.md) ----
-GAME = "salient_game"
+# ---- Which game runs at power-up: games/NAME.py or games/NAME/ (docs/making-games.md) ----
+GAME = "salient"              # "paint" is the small example game (and a quick test of every light and controller)
 FPS = 40                      # frames a second the host aims for
 
 # ---- LEDs ----
-# The island's LED map (docs/wiring.md); the channels, serpentine and bars are the same on both:
-#   "60_leds_per_meter"   3 LEDs on every spot (111)
-#   "144_leds_per_meter"  3 LEDs on every spot plus one under every vertical line between spots and at each row's
-#                         ends: line, spot, line, spot, ... line (155; the center row has 29)
-LED_MAP = "60_leds_per_meter"
-LED_FIRST_PIN = "NEOPIXEL0"   # NeoPXL8 drives 8 consecutive outputs starting here (NEOPIXEL0..7 on the SCORPIO)
-ISLAND_CHANNEL = 0            # 111 LEDs, serpentine from A1
-BAR_CHANNELS = (1, 2, 3, 4, 5, 6)   # the bar for seats 1..6 (seat 1 = bottom, then clockwise)
+# Which board (docs/wiring.md); the channels, serpentine and bars are the same on both:
+#   "large"   60 LEDs/m strip, 3 LEDs on every hex (111)
+#   "small"   144 LEDs/m strip, 3 LEDs on every hex plus one under every vertical line: between hexes and at each
+#             row's two ends (155; the center row has 29)
+BOARD = "large"
+# What drives them (gamehost/drivers.py):
+#   "neopxl8"   8 outputs at once from LED_PIN on (NEOPIXEL0..7 on the SCORPIO); a channel is one output
+#   "neopixel"  one strand on LED_PIN, any board; there's one channel (0), so chain everything on it
+#   None        no LEDs
+LED_DRIVER = "neopxl8"
+LED_PIN = "NEOPIXEL0"
+# Where each part starts, as (channel, LED): the island's serpentine (from A1), then each seat's bar (LED 1).
+ISLAND_AT = (0, 0)
+BARS_AT = ((1, 0), (2, 0), (3, 0), (4, 0), (5, 0), (6, 0))     # seats 1..6 (seat 1 = bottom, then clockwise)
+# One strand instead (LED_DRIVER = "neopixel"): the island, then the six bars chained after it
+#   ISLAND_AT = (0, 0)
+#   BARS_AT = ((0, 111), (0, 121), (0, 131), (0, 141), (0, 151), (0, 161))   # 155, 165, ... on the small board
 PIXEL_ORDER = "GRB"           # WS2812B; "GRBW" strips aren't supported yet
 BRIGHTNESS = 1.0              # overall, before the power limit
 POWER_LIMIT_A = 4.0           # the LEDs' share of the 5 V supply; None = no limit (full brightness)
@@ -26,7 +36,7 @@ EFFECT_TIME_SCALE = 1.0       # every light effect's cycle time is multiplied by
 # Each controller is one player's set of inputs. "seat" is where it sits (1-6), or None to choose a side when
 # joining; a one-player game always seats its player at the controller's seat (None = seat 1).
 # Every input produces some of the actions move, move_back, pick, back, up, down, left, right.
-# Input types (any mix, any number per controller):
+# Input types (any mix, any number per controller; gamehost/inputs.py, or your own as "module.Class"):
 #   button   {"type": "button", "pin": "D10", "does": "back"}           optional "hold": "back", "hold_s": 0.8
 #   encoder  {"type": "encoder", "a": "D24", "b": "D25"}                 turn = move / move_back; "reverse": True flips
 #   scan     {"type": "scan", "pin": "A2", "every": 1.5}                 one switch with auto-scan: the board steps
@@ -54,13 +64,12 @@ CONTROLLERS = [
     #     {"type": "button", "pin": "D11", "does": "pick"}, {"type": "button", "pin": "D12", "does": "back"}]},
 ]
 
-# Outboard controller boards on the STEMMA QT I2C bus (docs/controllers.md). Each gamepad or switch box on them
-# becomes its own controller (seat None) the first time it sends something.
-I2C_CONTROLLERS = True
-I2C_ADDRESSES = range(0x30, 0x40)   # where to look for them
+# Hubs: sources that bring their own controllers (gamehost/hubs.py). Take one out to turn it off.
+#   "i2c"       outboard controller boards on the STEMMA QT I2C bus (docs/controllers.md). Each gamepad or switch box
+#               on them becomes its own controller (seat None) the first time it sends something.
+#   "console"   the USB serial console as up to 6 controllers, for testing: type m (move), n (move back), p (pick),
+#               b (back), w/a/s/d (up/left/down/right); a digit 1-6 switches which console controller the keys go to.
+CONTROLLER_HUBS = ("i2c", "console")
+I2C_ADDRESSES = range(0x30, 0x40)   # where to look for controller boards
 I2C_FREQUENCY = 100000
 I2C_RESCAN_S = 5                     # how often to look for boards plugged in later
-
-# The USB serial console as up to 6 controllers, for testing: type m (move), n (move back), p (pick), b (back),
-# w/a/s/d (up/left/down/right); a digit 1-6 switches which console controller the following keys belong to.
-SERIAL_CONTROLLER = True

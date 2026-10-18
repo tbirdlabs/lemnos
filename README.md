@@ -6,7 +6,7 @@ readable from the board's lights.
 
 - `index.html` – browser prototype of the board (Invasion, Defender and Island Rush, all six seats), with a developer panel (rules settings, AI-vs-AI simulator, notes)
   behind `#debug` in the address. Open it from disk or from the IIS share.
-- `circuitpython/` – the board software for the Feather RP2040 SCORPIO: host, lights, controllers and the game (see its README).
+- `circuitpython/` – the board software for the Feather RP2040 SCORPIO: `gamehost/` (lights, controllers, the host; knows no game) and `games/` (Salient, and a small example). See its README, and [docs/making-games.md](docs/making-games.md) to write a game for the board.
 - `docs/wiring.md`, `docs/controllers.md` – how to wire the board, and the controller types and I2C protocol.
 - `docs/rules/` – the rules, one frozen export per version.
 - `NOTES.md` – prototype notes: file map, engine layout, settings, simulator results, difficulty and volcano tests.
@@ -16,7 +16,7 @@ run-tests
 run-sim --games 4000
 ```
 
-Island Rush: `sim-rush.js` (AI-vs-AI by player count). Browser UI: `test-ui.js`. Board UI: `py -3 circuitpython/test_board.py`.
+Island Rush: `sim-rush.js` (AI-vs-AI by player count). Browser UI: `test-ui.js`. Board: `py -3 circuitpython/tools/test_host.py` and `py -3 circuitpython/tools/test_salient.py`.
 
 ## Versions
 

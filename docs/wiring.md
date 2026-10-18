@@ -24,7 +24,7 @@ pins are all ground.
 
 | Channel | SCORPIO pin | Runs to | LEDs |
 | --- | --- | --- | --- |
-| 0 | NEOPIXEL0 (GPIO16) | Island | 111 (155 on the 144 LEDs/m map) |
+| 0 | NEOPIXEL0 (GPIO16) | Island | 111 on the large board, 155 on the small |
 | 1 | NEOPIXEL1 (GPIO17) | Seat 1 bar (bottom) | 10 |
 | 2 | NEOPIXEL2 (GPIO18) | Seat 2 bar (lower left) | 10 |
 | 3 | NEOPIXEL3 (GPIO19) | Seat 3 bar (upper left) | 10 |
@@ -33,21 +33,47 @@ pins are all ground.
 | 6 | NEOPIXEL6 (GPIO22) | Seat 6 bar (lower right) | 10 |
 | 7 | NEOPIXEL7 (GPIO23) | Spare | – |
 
-All 8 outputs update together (NeoPXL8), so the whole board refreshes in about 3.5 ms (about 5 ms on the 144 LEDs/m map). The library gives every
+All 8 outputs update together (NeoPXL8), so the whole board refreshes in about 3.5 ms (about 5 ms on the small board). The library gives every
 channel the island's length in memory; the bars just use their first 10.
 
 LEDs are 5 V addressable (WS2812B-type, GRB). The color order is `PIXEL_ORDER` in `config.py`.
 
+### Wired differently
+
+`config.py` says where each part starts, as (channel, LED): `ISLAND_AT` for the island's run (from A1, then the
+serpentine below) and `BARS_AT` for each seat's bar (LED 1). The table above is the default. `LED_DRIVER` picks what
+drives them:
+
+- `"neopxl8"` (default): 8 outputs at once from `LED_PIN` on; a channel is one output.
+- `"neopixel"`: one strand on `LED_PIN`, on any CircuitPython board (a Pico, say). There's only channel 0, so chain
+  the bars after the island: `ISLAND_AT = (0, 0)`, `BARS_AT = ((0, 111), (0, 121), … (0, 161))` (from 155 on the
+  small board). One strand of 171 LEDs takes about 5 ms to update, which is fine at 40 frames a second.
+- Your own, for other LED hardware: see `circuitpython/gamehost/drivers.py`.
+
 ### Island run (channel 0)
 
-Two LED maps, set by `LED_MAP` in `config.py`. Both are the same serpentine on the same channel; the 144 LEDs/m map
-just has extra LEDs in the chain.
+#### Names
 
-#### `60_leds_per_meter` (111 LEDs)
+Everything is named as seen from seat 1 (Player One, at the bottom):
 
-3 LEDs per spot, starting at A1 (top left):
+- **Rows** A to G, from the farthest from seat 1 (A) to the nearest (G). They have 4, 5, 6, 7, 6, 5 and 4 hexes.
+- **Hexes:** the row and 1 to n, left to right: A1–A4, B1–B5, C1–C6, D1–D7 (D4 is the center), E1–E6, F1–F5,
+  G1–G4.
+- **Lines** (small board): the vertical edges in a row, each with an LED under it. A row has one more line than
+  hexes, also counted from 1, left to right: line B1 is row B's left end, line Bk is just left of hex Bk, and line
+  B6 is the right end. So hex Bk sits between lines Bk and Bk+1. The slanted edges between rows have no LEDs.
 
-| Row | Spots in run order | LEDs |
+Games use these names (`lights.spot("B3", …)`, `lights.line("B4", …)`) and never see the strip order below.
+
+#### The run
+
+`BOARD` in `config.py` says which board it is. Both are the same serpentine on the same channel: the data enters at
+the left end of row A, runs along it left to right, and loops from the end of each row to the same end of the next,
+so rows B, D and F run right to left. The small board just has the line LEDs in the chain too.
+
+**Large board** (60 LEDs/m, 111 LEDs): 3 LEDs per hex.
+
+| Row | Run order | LEDs |
 | --- | --- | --- |
 | A | A1 → A4 | 0–11 |
 | B | B5 → B1 | 12–26 |
@@ -57,26 +83,22 @@ just has extra LEDs in the chain.
 | F | F5 → F1 | 84–98 |
 | G | G1 → G4 | 99–110 |
 
-Each spot's 3 LEDs follow the run, so on B, D and F (running left) a spot's first LED is its right one. The software
-handles that; just follow the strip.
-
-#### `144_leds_per_meter` (155 LEDs)
-
-Still 3 LEDs per spot, plus one LED under every vertical line: between each pair of spots in a row and at both ends
-of the row. Each row runs line, spot (3), line, spot (3), … line, so a row of n spots has 3n + n + 1 LEDs:
+**Small board** (144 LEDs/m, 155 LEDs): 3 LEDs per hex with a line LED on each side, so a row of n hexes has
+4n + 1 LEDs. Line A5 (right of A4) loops to line B6 (right of B5).
 
 | Row | Run order | LEDs |
 | --- | --- | --- |
-| A | line, A1, line, A2, line, A3, line, A4, line | 0–16 (17) |
-| B | line, B5, line, … B1, line | 17–37 (21) |
-| C | line, C1, line, … C6, line | 38–62 (25) |
-| D | line, D7, line, … D1, line | 63–91 (29) |
-| E | line, E1, line, … E6, line | 92–116 (25) |
-| F | line, F5, line, … F1, line | 117–137 (21) |
-| G | line, G1, line, … G4, line | 138–154 (17) |
+| A | line A1, A1, line A2, A2, line A3, A3, line A4, A4, line A5 | 0–16 (17) |
+| B | line B6, B5, line B5, … B1, line B1 | 17–37 (21) |
+| C | line C1, C1, line C2, … C6, line C7 | 38–62 (25) |
+| D | line D8, D7, line D7, … D1, line D1 | 63–91 (29) |
+| E | line E1, E1, line E2, … E6, line E7 | 92–116 (25) |
+| F | line F6, F5, line F5, … F1, line F1 | 117–137 (21) |
+| G | line G1, G1, line G2, … G4, line G5 | 138–154 (17) |
 
-The bars are 10 LEDs either way. The line LEDs are dark for now; games can light them with `lights.line(row, k, color)`
-(see `circuitpython/leds.py`).
+A hex's 3 LEDs follow the run, so on B, D and F a hex's first LED on the strip is its right one (as seen from seat
+1). The software handles all of this; just follow the strip. `tools/test_host.py` checks every LED of both boards
+against these tables.
 
 ### Bars (channels 1–6)
 
@@ -84,7 +106,7 @@ The bars are 10 LEDs either way. The line LEDs are dark for now; games can light
 
 ## Power
 
-All 171 LEDs (215 on the 144 LEDs/m map) at full white draw about 10 A (13 A). The software caps the LED current to `POWER_LIMIT_A` in `config.py`
+All 171 LEDs (215 on the small board) at full white draw about 10 A (13 A). The software caps the LED current to `POWER_LIMIT_A` in `config.py`
 (4 A by default) by dimming the whole frame when needed; set it to `None` for full brightness on a supply that can
 take it. Feed 5 V to the strips directly (not through the Feather), with the grounds tied together.
 
