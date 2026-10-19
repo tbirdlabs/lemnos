@@ -25,13 +25,14 @@ They meet in one small interface, the `Game` class in [`gamehost/game.py`](gameh
 | `gamehost/hubs.py` | Sources with their own controllers: I2C controller boards, the serial console. |
 | `gamehost/plugins.py` | How `config.py` names your own drivers, inputs, hubs and games (`"module.Name"`). |
 | `games/paint.py` | The example game: paint spots in your color. Also a quick test of every light and controller. |
+| `games/testpattern.py` | Test pattern: red, then green, then blue fill every LED one at a time, left to right; pause and step to print an LED's strip address. |
 | `games/salient/` | Salient: `game.py` (the board's side: setup, play UI, the computer's turns), `engine.py` (rules), `ai.py`, `difficulty.py`, `rules.py` (generated; don't edit), `bench.py` (bring-up). |
 | `tools/` | Desktop only, never copied to the board: tests, the JS / Python replay comparison, the profiler, `gen_rules.js`. |
 
 ## Tests (desktop, from this folder)
 
 ```
-py -3 tools/test_host.py        the board's parts: LED maps, drivers, effects, dice, geometry, controllers, host, paint
+py -3 tools/test_host.py        the board's parts: LED maps, drivers, effects, dice, geometry, controllers, host, paint, test pattern
 py -3 tools/test_salient.py     Salient played through the board UI by simulated controllers, checked against the engine
 ```
 
@@ -66,8 +67,9 @@ same seed plays the same game on both. They import nothing from `gamehost/`.
 
 ## On the board
 
-1. Install CircuitPython 9 for the Feather RP2040 SCORPIO, and from the bundle: `adafruit_neopxl8` (or `neopixel`
-   with `LED_DRIVER = "neopixel"`).
+1. Install CircuitPython 10 for the Feather RP2040 SCORPIO (tested on 10.3.1), and from the 10.x bundle into
+   `lib/`: `adafruit_neopxl8`, `adafruit_pioasm` and `adafruit_pixelbuf` (or `neopixel` with
+   `LED_DRIVER = "neopixel"`).
 2. Compile with CircuitPython's own `mpy-cross` (matching the firmware version). Copy to CIRCUITPY: `code.py` and
    `config.py` as they are, the `gamehost/` and `games/` folders with each `.py` compiled to `.mpy` except the
    `__init__.py` files (copy those as they are). Leave out `tools/`. Compiling the source on the board itself needs
@@ -75,6 +77,9 @@ same seed plays the same game on both. They import nothing from `gamehost/`.
 3. Wire to `docs/wiring.md`, or change `config.py` to match your wiring.
 4. Bring-up: run Salient's bench first (from the REPL: `from games.salient import bench; bench.main()`). It prints
    the worst AI move time and the lowest free RAM, and draws each position, which checks the LED map. To check
-   every light and controller by hand, set `GAME = "paint"`.
+   every LED, color and address, set `GAME = "testpattern"`: red, green and blue each fill the board one LED at
+   a time, rows A to G left to right as seen from seat 1, then the bars seat 1 to 6, so an LED out of turn is mapped
+   wrong. Pick pauses; move steps and prints the LED's channel and address. To check every controller by hand, set
+   `GAME = "paint"`.
 5. Then `code.py` runs the game. The serial console works as up to 6 controllers for testing (m, n, p, b, w/a/s/d;
    a digit switches controller).

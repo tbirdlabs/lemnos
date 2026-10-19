@@ -1,6 +1,6 @@
 # Desktop test of the board's own parts (gamehost/), with no game's rules involved: the LED maps and placement,
 # drivers, effects, the die roller, the board's geometry, controllers coming and going, plug-ins, and the host
-# running the example game (games/paint.py) on a fake clock.
+# running the example game (games/paint.py) and the test pattern (games/testpattern.py) on a fake clock.
 #   py -3 tools/test_host.py          (Salient on the board: tools/test_salient.py)
 
 import os
@@ -372,6 +372,61 @@ def hosting():
     check("paint: a controller that leaves loses its cursor", pad not in g.players)
 
 
+def test_pattern():
+    """games/testpattern.py on both boards, through the host to a pixel object: red lights the LEDs one at a time,
+    in place order (rows A-G left to right as seen from seat 1, then bars 1-6 LED 1-10), each on the strip address
+    the wiring tables give; then green over it, then blue; pause, step, start over."""
+    for board in ("large", "small"):
+        old = use_board(board)
+        try:
+            fp = FakePixels(leds.STRAND * 8)
+            h = host.Host(host.load_game("testpattern"), host.Board(leds.Lights(fp), Controls(hardware=False)))
+            run = strip(board)
+            want = []
+            for r, n in enumerate(G.ROW_LENGTHS):
+                row = "ABCDEFG"[r]
+                for k in range(1, n + 1):
+                    if board == "small":
+                        want.append(run.index(("line", row + str(k))))
+                    want += [run.index(("hex", row + str(k), i)) for i in range(3)]
+                if board == "small":
+                    want.append(run.index(("line", row + str(n + 1))))
+            want += [config.BARS_AT[s][0] * leds.STRAND + config.BARS_AT[s][1] + i for s in range(6) for i in range(10)]
+            used = set(want)
+            t = 0.0
+            for color in ((255, 0, 0), (0, 255, 0), (0, 0, 255)):
+                order = []
+                for _ in range(len(want) * 3 + 200):
+                    t += 0.025
+                    h.frame(t)
+                    order += [i for i in used if fp.px[i] == color and i not in order]
+                    if len(order) == len(want) and h.game.done == 0:
+                        break
+                check("%s pattern: %s lights in place order" % (board, color), order == want,
+                      [(i, want[i], order[i]) for i in range(min(len(want), len(order))) if want[i] != order[i]][:3])
+                check("%s pattern: the board all %s" % (board, color), all(fp.px[i] == color for i in used))
+                check("%s pattern: nothing else lit" % board,
+                      all(fp.px[i] == (0, 0, 0) for i in range(len(fp.px)) if i not in used))
+            g = h.game
+            ctl = h.board.controls
+            c = ctl.get("k", "keys", 1, ("move", "move_back", "pick", "back"))
+            ctl.feed(c, "pick")
+            h.frame(t + 0.1)
+            at = g.done
+            h.frame(t + 2.0)
+            check("%s pattern: pick pauses" % board, g.paused and g.done == at)
+            for a in ("move", "move", "move_back"):
+                ctl.feed(c, a)
+            h.frame(t + 2.1)
+            check("%s pattern: steps while paused" % board, g.done == at + 1, (at, g.done))
+            ctl.feed(c, "back")
+            h.frame(t + 2.2)
+            check("%s pattern: back starts over from dark" % board, g.done == 0 and not g.paused and
+                  all(fp.px[i] == (0, 0, 0) for i in used))
+        finally:
+            use_board(old)
+
+
 if __name__ == "__main__":
     lights_map()
     driver()
@@ -383,4 +438,5 @@ if __name__ == "__main__":
     controllers()
     plug_ins()
     hosting()
+    test_pattern()
     print("%d failed" % len(FAILS) if FAILS else "all passed")

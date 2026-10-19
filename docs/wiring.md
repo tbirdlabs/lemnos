@@ -98,7 +98,7 @@ so rows B, D and F run right to left. The small board just has the line LEDs in 
 
 A hex's 3 LEDs follow the run, so on B, D and F a hex's first LED on the strip is its right one (as seen from seat
 1). The software handles all of this; just follow the strip. `tools/test_host.py` checks every LED of both boards
-against these tables.
+against these tables; on the board, `GAME = "testpattern"` in `config.py` lights them in order to check the wiring.
 
 ### Bars (channels 1–6)
 

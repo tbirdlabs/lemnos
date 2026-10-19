@@ -3,7 +3,7 @@
 # Drivers, inputs and hubs can be your own: name them "module.Name" (gamehost/plugins.py).
 
 # ---- Which game runs at power-up: games/NAME.py or games/NAME/ (docs/making-games.md) ----
-GAME = "salient"              # "paint" is the small example game (and a quick test of every light and controller)
+GAME = "salient"              # "paint" is the small example game; "testpattern" checks every LED and its address
 FPS = 40                      # frames a second the host aims for
 
 # ---- LEDs ----
