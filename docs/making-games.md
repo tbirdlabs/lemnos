@@ -231,7 +231,7 @@ None of this needs a game to change:
 - **Different controllers:** list them in `config.py` (types in [controllers.md](controllers.md)). A new kind of
   input is a small class with `can` and `poll(now, emit)`. Put it in its own file and name it in `config.py` as
   `"file.Class"`.
-- **Different wiring or LED driver:** `LED_DRIVER`, `LED_PIN`, `ISLAND_AT` and `BARS_AT` in `config.py` ([wiring.md](wiring.md)).
+- **Different wiring or LED driver:** `LED_DRIVER`, `LED_PIN`, `ISLAND_START`, `ISLAND_AT` and `BARS_AT` in `config.py` ([wiring.md](wiring.md)).
   A plain NeoPixel strand on any CircuitPython board works with `LED_DRIVER = "neopixel"`, and other LED hardware
   takes a driver function (`gamehost/drivers.py`).
 - **A new source of many controllers** (Bluetooth straight to the board, a network): a hub (`gamehost/hubs.py`),

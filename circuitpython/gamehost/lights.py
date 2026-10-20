@@ -17,10 +17,12 @@
 # Where the LEDs are (config.py):
 #   BOARD           the island (the bars are the same on both):
 #                     "large"   60 LEDs/m, 3 LEDs a hex: rows of 12, 15, 18, 21, 18, 15, 12 LEDs (111)
-#                     "small"   144 LEDs/m: line A1, hex A1 (3), line A2, ... hex A4, line A5, then row B from its
-#                               right end (line B6): rows of 17, 21, 25, 29, 25, 21, 17 LEDs (155)
-#   ISLAND_AT       (channel, LED) where the island's run starts: the left end of row A (as seen from seat 1), then
-#                   serpentine: row A left to right, row B right to left, and so on
+#                     "small"   144 LEDs/m, 3 LEDs a hex with a line LED on each side: rows of 17, 21, 25, 29,
+#                               25, 21, 17 LEDs (155)
+#   ISLAND_START    the corner hex where the island's run starts, as seen from seat 1: "G4" (bottom right), "A1"
+#                   (top left), "A4" or "G1". Then serpentine: along that row, back along the next, row after row.
+#                   From G4: row G right to left, F left to right, ... A; on the small board line G5 comes first.
+#   ISLAND_AT       (channel, LED) where the island's run starts
 #   BARS_AT         (channel, LED) where each seat's bar starts (LED 1), seats 1-6
 #   LED_DRIVER      what drives them (drivers.py)
 
@@ -35,15 +37,20 @@ BAR = G.BAR_LEDS
 ROW_LENGTHS = G.ROW_LENGTHS
 OFF = (0, 0, 0)
 BOARDS = ("large", "small")
+STARTS = ("G4", "A1", "A4", "G1")
 
 
-def layout(board, island_at=None, bars_at=None):
+def layout(board, island_at=None, bars_at=None, start=None):
     """For a board ("large" or "small") and placement: (island LEDs on the strip, line LEDs, strand, PHYS).
     strand: LEDs per channel the driver needs (the farthest any part reaches on its channel).
     PHYS[k]: the driver's index for logical LED k. Logical order: spots (37 x 3, in geometry's numbering), then
-    bars (6 x 10), then lines (geometry's numbering). island_at, bars_at default to config.ISLAND_AT, BARS_AT."""
+    bars (6 x 10), then lines (geometry's numbering). island_at, bars_at, start default to config.ISLAND_AT,
+    BARS_AT, ISLAND_START."""
     if board not in BOARDS:
         raise ValueError("config.BOARD must be one of %s" % (BOARDS,))
+    start = start or getattr(config, "ISLAND_START", STARTS[0])
+    if start not in STARTS:
+        raise ValueError("config.ISLAND_START must be one of %s" % (STARTS,))
     island_at = island_at or config.ISLAND_AT
     bars_at = bars_at or config.BARS_AT
     lines = board == "small"
@@ -53,7 +60,9 @@ def layout(board, island_at=None, bars_at=None):
     phys = [0] * (SPOTS * PER_SPOT + SEATS * BAR + nlines)
     first_line = SPOTS * PER_SPOT + SEATS * BAR
     pos = island_at[0] * strand + island_at[1]
-    for r, n in enumerate(ROW_LENGTHS):
+    rows = range(len(ROW_LENGTHS)) if start[0] == "A" else range(len(ROW_LENGTHS) - 1, -1, -1)
+    for j, r in enumerate(rows):
+        n = ROW_LENGTHS[r]
         # this row's logical LEDs, left to right as seen from seat 1: line 1, hex 1 (3), line 2, ... hex n, line n+1
         run = []
         for c in range(n):
@@ -63,7 +72,7 @@ def layout(board, island_at=None, bars_at=None):
                 run.append(G.ROWS[r][c] * PER_SPOT + i)
         if lines:
             run.append(first_line + G.LINE_START[r] + n)
-        if r % 2:                                # B, D, F run right to left
+        if (j % 2 == 1) == (start[1] == "1"):    # right to left: the first row from a right corner, then every other
             run.reverse()
         for k in run:
             phys[k] = pos

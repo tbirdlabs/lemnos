@@ -24,14 +24,16 @@ def check(name, ok, detail=""):
         print("FAIL", name, detail)
 
 
-def strip(board):
+def strip(board, start=None):
     """The island's strip as built, LED by LED from the input, by name: ("line", "A1") or ("hex", "A1", i) with i
-    the LED's place in the hex left to right as seen from seat 1. Row A runs left to right from the input, the end
-    of each row loops to the same end of the next (line A5 to line B6 on the small board), so B, D and F run right
-    to left."""
+    the LED's place in the hex left to right as seen from seat 1. The input is at the corner hex start
+    (config.ISLAND_START, as seen from seat 1): its row runs away from that end, and the end of each row loops to
+    the same end of the next (line G1 to line F1 on the small board, from G4)."""
+    start = start or config.ISLAND_START
     out = []
-    for r, n in enumerate((4, 5, 6, 7, 6, 5, 4)):
-        row = "ABCDEFG"[r]
+    rows = "ABCDEFG" if start[0] == "A" else "GFEDCBA"
+    for j, row in enumerate(rows):
+        n = (4, 5, 6, 7, 6, 5, 4)["ABCDEFG".index(row)]
         run = []
         for k in range(1, n + 1):
             if board == "small":
@@ -39,7 +41,7 @@ def strip(board):
             run += [("hex", row + str(k), i) for i in range(3)]
         if board == "small":
             run.append(("line", row + str(n + 1)))
-        if r % 2:
+        if (j % 2 == 1) == (start[1] == "1"):
             run.reverse()
         out += run
     return out
@@ -49,32 +51,50 @@ def lights_map():
     """Both boards: every island LED where the strip puts it, by name; the bars on their channels."""
     nb = leds.SPOTS * 3                                   # first logical bar LED
     fl = nb + 60                                          # first logical line LED
-    for board, size, nlines in (("large", 111, 0), ("small", 155, 44)):
-        isl, nl, strand, ph = leds.layout(board)
-        check("%s: %d island LEDs, %d lines" % (board, size, nlines), (isl, nl, strand) == (size, nlines, size))
-        want = strip(board)
-        got = [None] * size
-        for x in want:
-            k = G.spot(x[1]) * 3 + x[2] if x[0] == "hex" else fl + G.line(x[1])
-            got[ph[k]] = x
-        check("%s: every LED in strip order" % board, got == want,
-              [(i, want[i], got[i]) for i in range(size) if want[i] != got[i]][:3])
-        check("%s: seat 1 bar on channel 1" % board, ph[nb] == config.BARS_AT[0][0] * size)
-        check("%s: seat 6 bar LED 10" % board, ph[nb + 59] == config.BARS_AT[5][0] * size + 9)
+    check("the default start is G4", leds.layout("large")[3] == leds.layout("large", start="G4")[3])
+    for start in leds.STARTS:
+        for board, size, nlines in (("large", 111, 0), ("small", 155, 44)):
+            isl, nl, strand, ph = leds.layout(board, start=start)
+            check("%s: %d island LEDs, %d lines" % (board, size, nlines), (isl, nl, strand) == (size, nlines, size))
+            want = strip(board, start)
+            got = [None] * size
+            for x in want:
+                k = G.spot(x[1]) * 3 + x[2] if x[0] == "hex" else fl + G.line(x[1])
+                got[ph[k]] = x
+            check("%s from the %s: every LED in strip order" % (board, start), got == want,
+                  [(i, want[i], got[i]) for i in range(size) if want[i] != got[i]][:3])
+            check("%s: seat 1 bar on channel 1" % board, ph[nb] == config.BARS_AT[0][0] * size)
+            check("%s: seat 6 bar LED 10" % board, ph[nb + 59] == config.BARS_AT[5][0] * size + 9)
 
-    def at(board, x):
-        isl, nl, strand, ph = leds.layout(board)
+    def at(board, x, start="G4"):
+        isl, nl, strand, ph = leds.layout(board, start=start)
         return ph[G.spot(x[1]) * 3 + x[2] if x[0] == "hex" else fl + G.line(x[1])]
     # the same, from the wiring tables in docs/wiring.md
-    check("large: A1 is LEDs 0-2", [at("large", ("hex", "A1", i)) for i in range(3)] == [0, 1, 2])
-    check("large: B5 follows A4, its right LED first", [at("large", ("hex", "B5", i)) for i in range(3)] == [14, 13, 12])
-    check("large: G4 ends the run", at("large", ("hex", "G4", 2)) == 110)
-    check("small: line A1 is LED 0, then A1", at("small", ("line", "A1")) == 0 and
-          [at("small", ("hex", "A1", i)) for i in range(3)] == [1, 2, 3] and at("small", ("line", "A2")) == 4)
-    check("small: line A5 (16) loops to line B6 (17), then B5", at("small", ("line", "A5")) == 16 and
-          at("small", ("line", "B6")) == 17 and [at("small", ("hex", "B5", i)) for i in range(3)] == [20, 19, 18])
-    check("small: row D is 63-91, from line D8 to line D1", at("small", ("line", "D8")) == 63 and at("small", ("line", "D1")) == 91)
-    check("small: G4 and line G5 end the run", at("small", ("hex", "G4", 2)) == 153 and at("small", ("line", "G5")) == 154)
+    check("large: G4 is LEDs 2-0, its right LED first", [at("large", ("hex", "G4", i)) for i in range(3)] == [2, 1, 0])
+    check("large: F1 follows G1, its left LED first", [at("large", ("hex", "F1", i)) for i in range(3)] == [12, 13, 14])
+    check("large: A1 ends the run", at("large", ("hex", "A1", 0)) == 110)
+    check("small: line G5 is LED 0, then G4", at("small", ("line", "G5")) == 0 and
+          [at("small", ("hex", "G4", i)) for i in range(3)] == [3, 2, 1] and at("small", ("line", "G4")) == 4)
+    check("small: line G1 (16) loops to line F1 (17), then F1", at("small", ("line", "G1")) == 16 and
+          at("small", ("line", "F1")) == 17 and [at("small", ("hex", "F1", i)) for i in range(3)] == [18, 19, 20])
+    check("small: row D is 63-91, from line D1 to line D8", at("small", ("line", "D1")) == 63 and at("small", ("line", "D8")) == 91)
+    check("small: A1 and line A1 end the run", at("small", ("hex", "A1", 0)) == 153 and at("small", ("line", "A1")) == 154)
+    # from A1 (the old wiring): the whole run reversed
+    check("A1: A1 is LEDs 0-2", [at("large", ("hex", "A1", i), "A1") for i in range(3)] == [0, 1, 2])
+    check("A1: B5 follows A4, its right LED first", [at("large", ("hex", "B5", i), "A1") for i in range(3)] == [14, 13, 12])
+    check("A1: G4 ends the run", at("large", ("hex", "G4", 2), "A1") == 110)
+    check("A1 small: line A5 (16) loops to line B6 (17), then B5", at("small", ("line", "A5"), "A1") == 16 and
+          at("small", ("line", "B6"), "A1") == 17 and [at("small", ("hex", "B5", i), "A1") for i in range(3)] == [20, 19, 18])
+    for board in ("large", "small"):
+        a1 = leds.layout(board, start="A1")[3]
+        g4 = leds.layout(board, start="G4")[3]
+        n = leds.layout(board)[0]
+        check("%s: from G4 is from A1 backward" % board, all(g4[k] == n - 1 - a1[k] for k in range(len(a1)) if a1[k] < n))
+    try:
+        leds.layout("large", start="top")
+        check("layout: an unknown start is an error", False)
+    except ValueError:
+        pass
     # one strand: the bars chained after the island
     chain = tuple((0, 111 + 10 * s) for s in range(6))
     isl, nl, strand, ph = leds.layout("large", (0, 0), chain)
@@ -110,11 +130,11 @@ def driver():
     fp = FakePixels(leds.STRAND * 8)
     lt = leds.Lights(fp)
     check("driver: dark at start", all(c == (0, 0, 0) for c in fp.px) and fp.shows == 1)
-    lt.spot(G.spot_at(3, -2), [(1, 2, 3), (4, 5, 6), (7, 8, 9)])        # B5: row B runs left
+    lt.spot(G.spot_at(3, -2), [(1, 2, 3), (4, 5, 6), (7, 8, 9)])        # B5: row B runs right (from G4)
     lt.bar(2, [(10, 0, 0)] + [(0, 0, 0)] * 9)
     lt.show()
-    b5 = 18 if leds.LINES else 12                         # B5's first LED on the strip: its right one
-    check("driver: B5's left light is its last LED", fp.px[b5 + 2] == (1, 2, 3) and fp.px[b5] == (7, 8, 9), fp.px[b5:b5 + 3])
+    b5 = 134 if leds.LINES else 96                        # B5's first LED on the strip: its left one
+    check("driver: B5's left light is its first LED", fp.px[b5] == (1, 2, 3) and fp.px[b5 + 2] == (7, 8, 9), fp.px[b5:b5 + 3])
     check("driver: seat 2's LED 1 on channel 2", fp.px[config.BARS_AT[1][0] * leds.STRAND] == (10, 0, 0))
     lt.show()
     check("driver: an unchanged frame isn't sent again", fp.shows == 2, fp.shows)
@@ -247,7 +267,7 @@ def use_board(board):
 
 
 def small_board():
-    """On the small board, names land on the right LEDs: row B runs right to left from LED 17 (line B6) to 37."""
+    """On the small board, names land on the right LEDs: row B runs left to right from LED 117 (line B1) to 137."""
     old = use_board("small")
     try:
         fp = FakePixels(leds.STRAND * 8)
@@ -258,9 +278,9 @@ def small_board():
         lt.between("B3", "B4", green)
         lt.spot("B3", [(1, 1, 1), (2, 2, 2), (3, 3, 3)])
         lt.show()
-        check("small: line B1 (row B's left end) is LED 37", fp.px[37] == red)
-        check("small: between B3 and B4 is LED 25", fp.px[25] == green)
-        check("small: hex B3 is LEDs 28, 27, 26, left to right", fp.px[26:29] == [(3, 3, 3), (2, 2, 2), (1, 1, 1)], fp.px[24:30])
+        check("small: line B1 (row B's left end) is LED 117", fp.px[117] == red)
+        check("small: between B3 and B4 is LED 129", fp.px[129] == green)
+        check("small: hex B3 is LEDs 126, 127, 128, left to right", fp.px[126:129] == [(1, 1, 1), (2, 2, 2), (3, 3, 3)], fp.px[124:130])
         check("small: nothing else lit", sum(1 for c in fp.px if c != (0, 0, 0)) == 5)
         # the example game joins same-colored hexes with their lines
         paint = host.load_game("paint")(host.Board(lt, Controls(hardware=False)))
@@ -428,19 +448,6 @@ def test_pattern():
             use_board(old)
 
 
-if __name__ == "__main__":
-    lights_map()
-    driver()
-    effects()
-    roller()
-    geometry()
-    names()
-    small_board()
-    controllers()
-    plug_ins()
-    hosting()
-    test_pattern()
-    print("%d failed" % len(FAILS) if FAILS else "all passed")
 class FakeChip:
     """An RTC chip whose seconds tick over at a set point of the fake nanosecond clock."""
 
@@ -611,6 +618,19 @@ def clock():
         config.RTC = config_rtc
 
 
+if __name__ == "__main__":
+    lights_map()
+    driver()
+    effects()
+    roller()
+    geometry()
+    names()
+    small_board()
+    controllers()
+    plug_ins()
+    hosting()
+    test_pattern()
     wall_time()
     console()
     clock()
+    print("%d failed" % len(FAILS) if FAILS else "all passed")

@@ -40,8 +40,9 @@ LEDs are 5 V addressable (WS2812B-type, GRB). The color order is `PIXEL_ORDER` i
 
 ### Wired differently
 
-`config.py` says where each part starts, as (channel, LED): `ISLAND_AT` for the island's run (from A1, then the
-serpentine below) and `BARS_AT` for each seat's bar (LED 1). The table above is the default. `LED_DRIVER` picks what
+`config.py` says where each part starts, as (channel, LED): `ISLAND_AT` for the island's run (the serpentine
+below, from the corner hex that `ISLAND_START` names) and `BARS_AT` for each seat's bar (LED 1). The table above
+is the default. `LED_DRIVER` picks what
 drives them:
 
 - `"neopxl8"` (default): 8 outputs at once from `LED_PIN` on; a channel is one output.
@@ -68,36 +69,42 @@ Games use these names (`lights.spot("B3", …)`, `lights.line("B4", …)`) and n
 #### The run
 
 `BOARD` in `config.py` says which board it is. Both are the same serpentine on the same channel: the data enters at
-the left end of row A, runs along it left to right, and loops from the end of each row to the same end of the next,
-so rows B, D and F run right to left. The small board just has the line LEDs in the chain too.
+the right end of row G (G4, the bottom right as seen from seat 1), runs along it right to left, and loops from the
+end of each row to the same end of the next, up the board to row A. So rows G, E, C and A run right to left, and F,
+D and B left to right. The small board just has the line LEDs in the chain too.
 
 **Large board** (60 LEDs/m, 111 LEDs): 3 LEDs per hex.
 
 | Row | Run order | LEDs |
 | --- | --- | --- |
-| A | A1 → A4 | 0–11 |
-| B | B5 → B1 | 12–26 |
-| C | C1 → C6 | 27–44 |
-| D | D7 → D1 | 45–65 |
-| E | E1 → E6 | 66–83 |
-| F | F5 → F1 | 84–98 |
-| G | G1 → G4 | 99–110 |
+| G | G4 → G1 | 0–11 |
+| F | F1 → F5 | 12–26 |
+| E | E6 → E1 | 27–44 |
+| D | D1 → D7 | 45–65 |
+| C | C6 → C1 | 66–83 |
+| B | B1 → B5 | 84–98 |
+| A | A4 → A1 | 99–110 |
 
 **Small board** (144 LEDs/m, 155 LEDs): 3 LEDs per hex with a line LED on each side, so a row of n hexes has
-4n + 1 LEDs. Line A5 (right of A4) loops to line B6 (right of B5).
+4n + 1 LEDs. Line G1 (left of G1) loops to line F1 (left of F1).
 
 | Row | Run order | LEDs |
 | --- | --- | --- |
-| A | line A1, A1, line A2, A2, line A3, A3, line A4, A4, line A5 | 0–16 (17) |
-| B | line B6, B5, line B5, … B1, line B1 | 17–37 (21) |
-| C | line C1, C1, line C2, … C6, line C7 | 38–62 (25) |
-| D | line D8, D7, line D7, … D1, line D1 | 63–91 (29) |
-| E | line E1, E1, line E2, … E6, line E7 | 92–116 (25) |
-| F | line F6, F5, line F5, … F1, line F1 | 117–137 (21) |
-| G | line G1, G1, line G2, … G4, line G5 | 138–154 (17) |
+| G | line G5, G4, line G4, G3, line G3, G2, line G2, G1, line G1 | 0–16 (17) |
+| F | line F1, F1, line F2, … F5, line F6 | 17–37 (21) |
+| E | line E7, E6, line E6, … E1, line E1 | 38–62 (25) |
+| D | line D1, D1, line D2, … D7, line D8 | 63–91 (29) |
+| C | line C7, C6, line C6, … C1, line C1 | 92–116 (25) |
+| B | line B1, B1, line B2, … B5, line B6 | 117–137 (21) |
+| A | line A5, A4, line A4, … A1, line A1 | 138–154 (17) |
 
-A hex's 3 LEDs follow the run, so on B, D and F a hex's first LED on the strip is its right one (as seen from seat
-1). The software handles all of this; just follow the strip. `tools/test_host.py` checks every LED of both boards
+A hex's 3 LEDs follow the run, so on G, E, C and A a hex's first LED on the strip is its right one (as seen from
+seat 1).
+
+**Other corners** (`ISLAND_START` in `config.py`): the run can start at any corner hex, `"G4"` (the default),
+`"A1"`, `"A4"` or `"G1"`. From A1 (the original wiring) it's the whole run above backward: row A first, A1 → A4 on
+LEDs 0–11, then B5 → B1, and so on down to G1 → G4 on 99–110; on the small board line A1 is LED 0 and line A5 loops
+to line B6. The software handles all of this; just follow the strip. `tools/test_host.py` checks every LED of both boards
 against these tables; on the board, `GAME = "testpattern"` in `config.py` lights them in order to check the wiring.
 
 ### Bars (channels 1–6)

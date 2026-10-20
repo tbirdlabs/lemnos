@@ -19,7 +19,12 @@ BOARD = "large"
 #   None        no LEDs
 LED_DRIVER = "neopxl8"
 LED_PIN = "NEOPIXEL0"
-# Where each part starts, as (channel, LED): the island's serpentine (from A1), then each seat's bar (LED 1).
+# The corner hex where the island's serpentine starts (the data in), as seen from seat 1:
+#   "G4"   bottom right: row G right to left, row F left to right, and so on up to row A
+#   "A1"   top left: row A left to right, row B right to left, and so on down to row G (the old wiring)
+#   "A4", "G1" work too
+ISLAND_START = "G4"
+# Where each part starts, as (channel, LED): the island's serpentine, then each seat's bar (LED 1).
 ISLAND_AT = (0, 0)
 BARS_AT = ((1, 0), (2, 0), (3, 0), (4, 0), (5, 0), (6, 0))     # seats 1..6 (seat 1 = bottom, then clockwise)
 # One strand instead (LED_DRIVER = "neopixel"): the island, then the six bars chained after it
