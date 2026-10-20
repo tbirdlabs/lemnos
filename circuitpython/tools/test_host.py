@@ -1,6 +1,7 @@
 # Desktop test of the board's own parts (gamehost/), with no game's rules involved: the LED maps and placement,
 # drivers, effects, the die roller, the board's geometry, controllers coming and going, plug-ins, and the host
-# running the example game (games/paint.py) and the test pattern (games/testpattern.py) on a fake clock.
+# running the example game (games/paint.py), the test pattern (games/testpattern.py) and the clock (games/clock.py)
+# on a fake clock, the time of day (walltime.py, with a fake RTC chip) and console command lines.
 #   py -3 tools/test_host.py          (Salient on the board: tools/test_salient.py)
 
 import os
@@ -8,7 +9,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 import config
-from gamehost import dice, fx, host, plugins
+from gamehost import dice, fx, host, hubs, plugins, walltime
 from gamehost import geometry as G
 from gamehost import lights as leds
 from gamehost.controls import ADDED, REMOVED, Controls
@@ -440,3 +441,176 @@ if __name__ == "__main__":
     hosting()
     test_pattern()
     print("%d failed" % len(FAILS) if FAILS else "all passed")
+class FakeChip:
+    """An RTC chip whose seconds tick over at a set point of the fake nanosecond clock."""
+
+    def __init__(self, clock, t, lost=False):
+        self.clock = clock               # [ns]
+        self.t0 = t                      # (y, mo, d, h, mi, s) at ns 0
+        self.lost = lost
+        self.written = None
+
+    def read(self):
+        if self.lost:
+            return None
+        y, mo, d, h, mi, s = self.t0
+        n = (h * 3600 + mi * 60 + s) + self.clock[0] // 1000000000
+        return (y, mo, d, n // 3600 % 24, n // 60 % 60, n % 60)
+
+    def write(self, t, wday):
+        self.written = (t, wday)
+        self.lost = False
+
+
+def wall_time():
+    """walltime: set and read back, typed commands, and keeping in step with an RTC chip."""
+    clock = [0]
+    w = walltime.Wall(chip=None, ns=lambda: clock[0], board_rtc=None)
+    check("wall: not known at first", not w.known and "(not set)" in w.describe())
+    w.set(23, 59, 58)
+    clock[0] += 3500000000
+    check("wall: runs and wraps at midnight", w.hms() == (0, 0, 1) and w.ms() == 1500, (w.hms(), w.ms()))
+    for text, want in (("time 14:32", (14, 32, 0)), ("TIME 2:32pm", (14, 32, 0)), ("time 12:05 am", (0, 5, 0)),
+                       ("t 9:07:30", (9, 7, 30)), ("time 2026-10-20 14:32:05", (14, 32, 5))):
+        reply = w.command(text)
+        check("wall: %r" % text, w.hms() == want and reply.startswith("Set"), (w.hms(), reply))
+    check("wall: time alone says it", "14:32:05" in w.command("time"))
+    for bad in ("time 25:00", "time 13:00pm", "time noon", "time 2026-13-01 1:00"):
+        check("wall: %r refused" % bad, w.command(bad).startswith("Type") and w.hms() == (14, 32, 5), w.command(bad))
+    check("wall: not a time command", w.command("help") is None)
+    check("wall: weekday", walltime.weekday(2026, 10, 20) == 1 and walltime.weekday(2000, 1, 1) == 5)
+    # a chip: read at start, starting the milliseconds where its seconds tick over
+    clock[0] = 300000000                 # 0.3 s: the chip's next tick is at 1 s
+    chip = FakeChip(clock, (2026, 10, 20, 8, 15, 0))
+    w = walltime.Wall(chip=chip, ns=lambda: clock[0], board_rtc=None)
+    while clock[0] < 1500000000:
+        w.update()
+        clock[0] += 25000000
+    check("wall: from the chip, on its tick", w.known and w.chip_ok and
+          abs(w.ms() - (8 * 3600 + 15 * 60 + 1.5) * 1000) <= 25, (w.ms(), w.describe()))
+    w.set(9, 0, 0, (2026, 10, 21))
+    check("wall: setting writes the chip", chip.written == ((2026, 10, 21, 9, 0, 0), 2), chip.written)
+    clock[0] = 0
+    w = walltime.Wall(chip=FakeChip(clock, (2026, 1, 1, 0, 0, 0), lost=True), ns=lambda: clock[0], board_rtc=None)
+    for _ in range(10):
+        w.update()
+        clock[0] += 25000000
+    check("wall: a chip that lost the time isn't trusted", not w.known and w.chip_ok is False, w.describe())
+
+
+class FakeSerial:
+    def __init__(self):
+        self.text = ""
+        self.runtime = self
+
+    @property
+    def serial_bytes_available(self):
+        return len(self.text)
+
+    def read(self, n):
+        out = self.text[:n]
+        self.text = self.text[n:]
+        return out
+
+
+def console():
+    """The console hub: keys are actions; a line starting with another letter (or /) is a command for the game."""
+    ctl = Controls(hardware=False)
+    con = hubs.Console.__new__(hubs.Console)
+    ser = FakeSerial()
+    con.sup = ser
+    con.stdin = ser
+    con.controls = ctl
+    con.which = 1
+    con.line = None
+    got = []
+    ser.text = "mp2ptime 14:3x\b2\r/settime 1:00\rb"
+    con.poll(0.0, lambda c, a: got.append((c.id, a)))
+    check("console: keys", got == [("console1", "move"), ("console1", "pick"), ("console2", "pick"), ("console2", "back")], got)
+    check("console: commands", ctl.take_commands() == ["time 14:32", "settime 1:00"])
+
+
+def clock():
+    """games/clock.py: the hands point at the time, the corners stay dark, the ring shows the hours, the minute and
+    the second; pick turns the second light off; "time" commands reach it through the host."""
+    import games.clock as C
+    config_rtc = getattr(config, "RTC", None)
+    config.RTC = None
+    ns = [0]
+    try:
+        for board in ("large", "small"):
+            old = use_board(board)
+            try:
+                lt = leds.Lights()
+                h = host.Host(host.load_game("clock"), host.Board(lt, Controls(hardware=False)))
+                g = h.game
+                g.wall = walltime.Wall(chip=None, ns=lambda: ns[0], board_rtc=None)
+                g.wall.set(3, 0, 30)
+                h.frame(0.0)
+
+                def lit(color):
+                    """{row letter: the hexes (and lines, as "|B4") lit in this color, left to right}"""
+                    out = {}
+                    for t in range(G.SPOTS):
+                        for i in range(3):
+                            if g.spot_colors[t][i] == color:
+                                out.setdefault("ABCDEFG"[G.ROW[t]], []).append(G.name(t))
+                    for k, c in enumerate(g.line_colors):
+                        if c == color:
+                            out.setdefault("ABCDEFG"[G.LINE_ROW[k]], []).append("|" + G.line_name(k))
+                    return out
+                hour = lit(C.HOUR)
+                check("%s clock: the hour hand at 3, along row D" % board,
+                      list(hour) == ["D"] and set(n for n in hour["D"] if n[0] != "|") == {"D5", "D6"}, hour)
+                minute = lit(C.MINUTE)
+                check("%s clock: the minute hand at 12, one LED in each row above the center" % board,
+                      sorted(minute) == ["A", "B", "C"] and all(len(v) == 1 for v in minute.values()) and minute["B"] == ["B3"], minute)
+                second = lit(C.SECOND)
+                check("%s clock: the second hand at 6 (30 s), one LED in each row below" % board,
+                      sorted(second) == ["E", "F", "G"] and all(len(v) == 1 for v in second.values()) and second["F"] == ["F3"], second)
+                check("%s clock: the center is the hub" % board, g.spot_colors[G.CENTER] == [C.HUB] * 3)
+                corners = [G.name(t) for t in range(G.SPOTS) if g.spot_colors[t] == [C.OFF] * 3]
+                check("%s clock: the 6 corners dark" % board, sorted(corners) == ["A1", "A4", "D1", "D7", "G1", "G4"], corners)
+                g.wall.set(12, 0, 0)             # all three up: they mix
+                h.frame(0.01)
+                mixed = lit((255, 255, 255))
+                check("%s clock: at 12:00:00 the hands add to white where all three are" % board,
+                      sorted(mixed) == ["B", "C"] and mixed["B"] == ["B3"], mixed)
+                check("%s clock: and to yellow (minute + second) past the hour hand's tip" % board,
+                      list(lit((255, 255, 0))) == ["A"] and not lit(C.HOUR) and not lit(C.MINUTE) and not lit(C.SECOND))
+                g.wall.set(3, 0, 30)
+                ns[0] += 15000000000             # 15 s on: the second hand at 9, along row D (as far out as at 12:
+                                                 # into corner D1's inner LED)
+                h.frame(0.05)
+                second = lit(C.SECOND)
+                check("%s clock: the second hand at 9, along row D" % board,
+                      list(second) == ["D"] and set(n for n in second["D"] if n[0] != "|") == {"D1", "D2", "D3"}, second)
+                check("%s clock: the hour hand still at 3" % board, set(n for n in lit(C.HOUR)["D"] if n[0] != "|") == {"D5", "D6"})
+                ns[0] -= 15000000000
+                ring = g.ring(g.wall.ms())
+                check("%s clock: ring light 0 is the top bar's LED 5, then clockwise" % board,
+                      C.RING_AT[0] == (4, 4) and C.RING_AT[5] == (5, 9) and C.RING_AT[30] == (1, 4) and C.RING_AT[59] == (4, 5))
+                check("%s clock: second light at the bottom (30 s)" % board, ring[29][0] > 100 and ring[30][0] > 100, ring[28:32])
+                h.frame(0.1)
+                bar1 = (leds.ISLAND + 4) * 3
+                check("%s clock: drawn on seat 1's bar" % board, lt.sent[bar1] > 100, lt.sent[bar1:bar1 + 3])
+                ctl = h.board.controls
+                c = ctl.get("k", "keys", 1, ("move", "pick"))
+                ctl.feed(c, "pick")
+                ctl.command("time 6:30")
+                h.frame(0.2)
+                ring = g.ring(g.wall.ms())
+                check("%s clock: pick hides the seconds" % board, not g.seconds and ring[0] == ring[59] and
+                      ring[0][0] == ring[0][2] and not lit(C.SECOND), ring[:2])
+                check("%s clock: set by a command" % board, g.wall.hms() == (6, 30, 0))
+                minute = lit(C.MINUTE)
+                check("%s clock: the minute hand at 6" % board, sorted(minute) == ["E", "F", "G"] and minute["F"] == ["F3"], minute)
+            finally:
+                use_board(old)
+    finally:
+        config.RTC = config_rtc
+
+
+    wall_time()
+    console()
+    clock()

@@ -140,5 +140,6 @@ Switches short the pin to ground (internal pull-ups are on). An encoder's two pi
 | TX, RX | 0, 1 | Free; the serial console runs over USB |
 
 Avoid D13 (red LED on it), D4 (onboard status NeoPixel) and the BOOT button (GPIO7). SDA/SCL (GPIO2/3, the STEMMA QT
-port) are the I2C bus for controller boards. NEOPIXEL7 is output-only (level shifter), so it stays the spare LED
-channel.
+port) are the I2C bus for controller boards, and for an RTC chip (DS3231, PCF8523 or DS1307 at 0x68, set in
+`config.RTC`) that keeps the clock's time through power-off. NEOPIXEL7 is output-only (level shifter), so it stays
+the spare LED channel.

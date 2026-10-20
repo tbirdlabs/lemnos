@@ -62,6 +62,9 @@ class Host:
                 game.controller_removed(c, now)
         for c, a in board.controls.poll(now):
             game.event(c, a, now)
+        for text in board.controls.take_commands():
+            reply = game.command(text, now)
+            print(reply if reply is not None else "No command \"%s\" in this game." % text)
         game.update(now)
         lights = board.lights
         lights.fill(OFF)

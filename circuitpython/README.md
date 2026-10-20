@@ -22,17 +22,19 @@ They meet in one small interface, the `Game` class in [`gamehost/game.py`](gameh
 | `gamehost/actions.py` | The actions controllers send: move, move back, pick, back, up, down, left, right. |
 | `gamehost/controls.py` | Controllers: the inputs and hubs below, turned into (controller, action). |
 | `gamehost/inputs.py` | Wired inputs: button, encoder, one-switch scan, resistor ladder (`docs/controllers.md`). |
-| `gamehost/hubs.py` | Sources with their own controllers: I2C controller boards, the serial console. |
+| `gamehost/hubs.py` | Sources with their own controllers: I2C controller boards, the serial console (which also takes typed commands for the game). |
+| `gamehost/walltime.py` | The time of day: an RTC chip on the I2C bus (`config.RTC`) or the board's own clock; `time 14:32` on the console sets it. |
 | `gamehost/plugins.py` | How `config.py` names your own drivers, inputs, hubs and games (`"module.Name"`). |
 | `games/paint.py` | The example game: paint spots in your color. Also a quick test of every light and controller. |
 | `games/testpattern.py` | Test pattern: red, then green, then blue fill every LED one at a time, left to right; pause and step to print an LED's strip address. |
+| `games/clock.py` | An analog wall clock: the island is the face, the six bars a 60-light minute ring. |
 | `games/salient/` | Salient: `game.py` (the board's side: setup, play UI, the computer's turns), `engine.py` (rules), `ai.py`, `difficulty.py`, `rules.py` (generated; don't edit), `bench.py` (bring-up). |
-| `tools/` | Desktop only, never copied to the board: tests, the JS / Python replay comparison, the profiler, `gen_rules.js`. |
+| `tools/` | Desktop only, never copied to the board: tests, the JS / Python replay comparison, the profiler, `gen_rules.js`, `settime.ps1` (sets the board's clock from this computer). |
 
 ## Tests (desktop, from this folder)
 
 ```
-py -3 tools/test_host.py        the board's parts: LED maps, drivers, effects, dice, geometry, controllers, host, paint, test pattern
+py -3 tools/test_host.py        the board's parts: LED maps, drivers, effects, dice, geometry, controllers, host, paint, test pattern, clock
 py -3 tools/test_salient.py     Salient played through the board UI by simulated controllers, checked against the engine
 ```
 
@@ -82,4 +84,5 @@ same seed plays the same game on both. They import nothing from `gamehost/`.
    wrong. Pick pauses; move steps and prints the LED's channel and address. To check every controller by hand, set
    `GAME = "paint"`.
 5. Then `code.py` runs the game. The serial console works as up to 6 controllers for testing (m, n, p, b, w/a/s/d;
-   a digit switches controller).
+   a digit switches controller). A line starting with any other letter is a command for the game, such as
+   `time 14:32` for the clock (`GAME = "clock"`); `powershell -File tools\settime.ps1 COM16` sends this computer's time.

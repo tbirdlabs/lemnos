@@ -38,10 +38,12 @@ Every frame (40 a second) the host:
 1. tells the game about controllers that arrived or left: `controller_added(controller, now)`,
    `controller_removed(controller, now)`
 2. hands it every action since the last frame, in order: `event(controller, action, now)`
-3. lets it run its clock: `update(now)`
-4. sets every light dark, calls `draw(lights, now)`, and shows the result
+3. passes on command lines typed on the serial console: `command(text, now)`, which returns the reply to print (or
+   `None` for "no such command")
+4. lets it run its clock: `update(now)`
+5. sets every light dark, calls `draw(lights, now)`, and shows the result
 
-All five methods have do-nothing defaults; write only the ones you need. `now` is the board's clock in seconds. Use
+All six methods have do-nothing defaults; write only the ones you need. `now` is the board's clock in seconds. Use
 it for all timing instead of reading the time yourself, so tests can run your game on a fake clock.
 
 Some ground rules that keep games working on the real board:
@@ -158,6 +160,14 @@ dice.seed()                             # a random 32-bit number to seed a game'
 
 Seed your own generator from `dice.seed()` and keep the seed, and a game can be replayed exactly. Salient does this.
 
+## The time of day: `gamehost/walltime.py`
+
+For a game that needs the real time (the clock, `games/clock.py`): `w = walltime.Wall()` once, `w.update()` every
+frame, then `w.ms()` (milliseconds since midnight), `w.hms()`, and `w.known` (False until the time's been set). It
+reads an RTC chip on the I2C bus if `config.RTC` names one, and otherwise keeps time on the board while it's on.
+Pass console commands to `w.command(text)` from your game's `command()` and players can set it by typing
+`time 14:32`; `tools/settime.ps1 COM16` sends the computer's time.
+
 ## Controllers and actions
 
 Every input device is turned into the same few actions
@@ -211,7 +221,8 @@ h.frame(0.0)                             # one frame at t = 0 s; look at h.game,
 the board's controls.
 
 On the board, set `GAME` in `config.py`. The USB serial console works as up to 6 controllers: type m (move), n (move
-back), p (pick), b (back), w/a/s/d (arrows), and a digit 1-6 to switch controllers.
+back), p (pick), b (back), w/a/s/d (arrows), and a digit 1-6 to switch controllers. A line that starts with any other
+letter (or with `/`) is a command for the game, sent with Enter: `time 14:32` for the clock.
 
 ## Changing the hardware instead
 

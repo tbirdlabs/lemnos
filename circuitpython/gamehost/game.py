@@ -11,8 +11,9 @@
 # Every frame (config.FPS, 40 a second by default) the host:
 #   1. tells the game about controllers that arrived or left   controller_added / controller_removed
 #   2. hands it every action since the last frame, in order    event
-#   3. lets it run its clock                                   update
-#   4. clears the lights, has the game draw, and shows them    draw
+#   3. passes on lines typed on the serial console             command
+#   4. lets it run its clock                                   update
+#   5. clears the lights, has the game draw, and shows them    draw
 # `now` is the board's clock in seconds (time.monotonic()); use it rather than reading the time yourself, so tests can
 # run a game on a fake clock.
 #
@@ -21,7 +22,7 @@
 #   board.controls      controls.Controls; board.controllers is the list of controllers connected right now
 #   board.seats         6
 # and, to import as it likes: geometry (spots, neighbors, sides, each seat's view), fx (light effects), dice (a die
-# roll shown on a bar), actions (the action names). See docs/making-games.md.
+# roll shown on a bar), actions (the action names), walltime (the time of day). See docs/making-games.md.
 
 
 class Game:
@@ -38,6 +39,11 @@ class Game:
                     it can send). The same object every time for the same controller, so it can be used as a key.
         action      one of actions.ALL: "move", "move_back", "pick", "back", "up", "down", "left", "right".
         """
+
+    def command(self, text, now):
+        """A command line typed on the serial console (or sent by a tool), such as "time 14:32" for the clock.
+        Return the reply to print, or None if the game has no such command (the host says so)."""
+        return None
 
     def update(self, now):
         """Called once a frame after the events: run timers and animations, let computer players think.

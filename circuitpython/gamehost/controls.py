@@ -58,6 +58,7 @@ class Controls:
         self.hubs = []
         self.queue = []
         self.notices = []          # (ADDED or REMOVED, controller), for the host to pass to the game
+        self.commands = []         # typed command lines, for the host to pass to the game
         if not hardware:
             return
         for k, spec in enumerate(config.CONTROLLERS):
@@ -109,6 +110,16 @@ class Controls:
     def feed(self, controller, action):
         """Queue an action as if the controller had sent it (desktop tests, other code)."""
         self.queue.append((controller, action))
+
+    def command(self, text):
+        """Queue a command line for the game (the console hub calls this; desktop tests too)."""
+        self.commands.append(text)
+
+    def take_commands(self):
+        """Command lines typed since the last call, oldest first."""
+        out = self.commands
+        self.commands = []
+        return out
 
     def take_notices(self):
         """Controllers added or removed since the last call: [(ADDED or REMOVED, controller), ...]."""

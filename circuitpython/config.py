@@ -3,7 +3,8 @@
 # Drivers, inputs and hubs can be your own: name them "module.Name" (gamehost/plugins.py).
 
 # ---- Which game runs at power-up: games/NAME.py or games/NAME/ (docs/making-games.md) ----
-GAME = "salient"              # "paint" is the small example game; "testpattern" checks every LED and its address
+GAME = "salient"              # "paint" is the small example game; "testpattern" checks every LED and its address;
+                              # "clock" is an analog wall clock
 FPS = 40                      # frames a second the host aims for
 
 # ---- LEDs ----
@@ -73,3 +74,9 @@ CONTROLLER_HUBS = ("i2c", "console")
 I2C_ADDRESSES = range(0x30, 0x40)   # where to look for controller boards
 I2C_FREQUENCY = 100000
 I2C_RESCAN_S = 5                     # how often to look for boards plugged in later
+
+# ---- Time of day (gamehost/walltime.py: the clock) ----
+# An RTC chip on the STEMMA QT I2C bus keeps the time through power-off, on its coin cell: "ds3231" (Adafruit's
+# DS3231 Precision RTC), "pcf8523" or "ds1307" (all at address 0x68), or None. If none answers, the board keeps
+# time itself while it's on; set it from the serial console ("time 14:32") or tools/settime.ps1 after power-up.
+RTC = "ds3231"

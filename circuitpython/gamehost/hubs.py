@@ -4,7 +4,9 @@
 #   "i2c"       outboard controller boards on the STEMMA QT I2C bus (docs/controllers.md, protocol v1): every
 #               (board, pad) is its own controller, such as each Bluetooth gamepad on an ESP32
 #   "console"   the USB serial console as up to 6 controllers, for testing: m (move), n (move back), p (pick),
-#               b (back), w/a/s/d (up/left/down/right); a digit 1-6 switches which controller the keys belong to
+#               b (back), w/a/s/d (up/left/down/right); a digit 1-6 switches which controller the keys belong to.
+#               It also takes typed commands for the game (Game.command): a line that starts with any other letter
+#               (or with "/") up to Enter, such as "time 14:32" for the clock.
 #
 # A hub is a class made with the Controls it feeds, with:
 #   poll(now, emit)     called every frame; calls emit(controller, action) for each action since the last poll
@@ -13,6 +15,18 @@
 
 import config
 from . import actions as A
+
+_bus = None
+
+
+def i2c_bus():
+    """The STEMMA QT I2C bus, made the first time it's asked for and shared after: controller boards, an RTC chip."""
+    global _bus
+    if _bus is None:
+        import board
+        import busio
+        _bus = busio.I2C(board.SCL, board.SDA, frequency=config.I2C_FREQUENCY)
+    return _bus
 
 # I2C protocol v1 (docs/controllers.md): an 8-byte read returns [0x10 | count, event, ...]; each event byte is
 # pad << 4 | code.
@@ -23,10 +37,8 @@ I2C_GONE = 15             # the pad disconnected
 
 class I2CBoards:
     def __init__(self, controls):
-        import board
-        import busio
         self.controls = controls
-        self.i2c = busio.I2C(board.SCL, board.SDA, frequency=config.I2C_FREQUENCY)
+        self.i2c = i2c_bus()
         self.nodes = []
         self.buf = bytearray(8)
         self.next_scan = 0.0
@@ -77,7 +89,7 @@ CONSOLE_KEYS = {"m": A.MOVE, "n": A.MOVE_BACK, "p": A.PICK, "b": A.BACK,
 
 
 class Console:
-    """The USB serial console as up to 6 controllers (for testing)."""
+    """The USB serial console as up to 6 controllers (for testing), and a command line for the game."""
 
     def __init__(self, controls):
         import supervisor
@@ -86,13 +98,35 @@ class Console:
         self.stdin = sys.stdin
         self.controls = controls
         self.which = 1
+        self.line = None           # a command being typed, or None
+
+    def typed(self, ch):
+        """One character of a command line: echoed, since the console doesn't echo while code runs."""
+        if ch in "\r\n":
+            print()
+            if self.line.strip():
+                self.controls.command(self.line.strip())
+            self.line = None
+        elif ch in "\b\x7f":
+            if self.line:
+                self.line = self.line[:-1]
+                print("\b \b", end="")
+        elif ch >= " ":
+            self.line += ch
+            print(ch, end="")
 
     def poll(self, now, emit):
         n = self.sup.runtime.serial_bytes_available
         if not n:
             return
         for ch in self.stdin.read(n):
-            if "1" <= ch <= "6":
+            if self.line is not None:
+                self.typed(ch)
+            elif ch == "/" or (ch.isalpha() and ch.lower() not in CONSOLE_KEYS):
+                self.line = ""
+                if ch != "/":
+                    self.typed(ch)
+            elif "1" <= ch <= "6":
                 self.which = int(ch)
             elif ch.lower() in CONSOLE_KEYS:
                 c = self.controls.get("console%d" % self.which, "console %d" % self.which, None, A.ALL)
