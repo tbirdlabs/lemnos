@@ -9,6 +9,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 import config
+config.BRIGHTNESS = 1.0                  # these tests read LED values: at full, they're what the game drew
 from gamehost import dice, fx, host, hubs, plugins, walltime
 from gamehost import geometry as G
 from gamehost import lights as leds
@@ -138,6 +139,16 @@ def driver():
     check("driver: seat 2's LED 1 on channel 2", fp.px[config.BARS_AT[1][0] * leds.STRAND] == (10, 0, 0))
     lt.show()
     check("driver: an unchanged frame isn't sent again", fp.shows == 2, fp.shows)
+    steps = [round(leds.step_brightness(n) * 1000) / 10 for n in range(1, 11)]
+    check("brightness steps: a log scale, 5 = 10%, 10 = full", steps == [1.6, 2.5, 4.0, 6.3, 10.0, 15.8, 25.1, 39.8,
+                                                                       63.1, 100.0], steps)
+    lt.set_brightness(0.5)
+    lt.show()
+    check("driver: brightness dims what the LEDs get, every LED at once", fp.shows == 3 and fp.brightness == 1.0 and
+          fp.px[b5 + 2] == (3, 4, 4) and fp.px[config.BARS_AT[1][0] * leds.STRAND] == (5, 0, 0), fp.px[b5:b5 + 3])
+    lt.set_brightness(None)
+    lt.show()
+    check("driver: and back", fp.px[b5 + 2] == (7, 8, 9) and fp.shows == 4)
     try:
         leds.Lights(FakePixels(10))
         check("driver: too few LEDs is an error", False)
@@ -397,6 +408,8 @@ def test_pattern():
     """games/testpattern.py on both boards, through the host to a pixel object: red lights the LEDs one at a time,
     in place order (rows A-G left to right as seen from seat 1, then bars 1-6 LED 1-10), each on the strip address
     the wiring tables give; then green over it, then blue; pause, step, start over."""
+    cap = config.POWER_LIMIT_A
+    config.POWER_LIMIT_A = None          # full red on the small board is over 4 A: the LEDs would get it dimmed
     for board in ("large", "small"):
         old = use_board(board)
         try:
@@ -446,6 +459,7 @@ def test_pattern():
                   all(fp.px[i] == (0, 0, 0) for i in used))
         finally:
             use_board(old)
+    config.POWER_LIMIT_A = cap
 
 
 class FakeChip:
@@ -523,13 +537,8 @@ class FakeSerial:
 def console():
     """The console hub: keys are actions; a line starting with another letter (or /) is a command for the game."""
     ctl = Controls(hardware=False)
-    con = hubs.Console.__new__(hubs.Console)
     ser = FakeSerial()
-    con.sup = ser
-    con.stdin = ser
-    con.controls = ctl
-    con.which = 1
-    con.line = None
+    con = hubs.Console(ctl, sup=ser, stdin=ser)
     got = []
     ser.text = "mp2ptime 14:3x\b2\r/settime 1:00\rb"
     con.poll(0.0, lambda c, a: got.append((c.id, a)))

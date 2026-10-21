@@ -135,7 +135,7 @@ Switches short the pin to ground (internal pull-ups are on). An encoder's two pi
 
 ### Free inputs
 
-17 general inputs are free with the island, six bars and the I2C bus in use:
+15 general inputs are free with the island, six bars, the I2C bus and the radio in use:
 
 | Pins | GPIO | Notes |
 | --- | --- | --- |
@@ -144,9 +144,27 @@ Switches short the pin to ground (internal pull-ups are on). An encoder's two pi
 | D5, D6 | 5, 6 | |
 | D9–D12 | 9–12 | D9, D10 default encoder push and button |
 | SCK, MO, MI | 14, 15, 8 | Free while nothing uses SPI |
-| TX, RX | 0, 1 | Free; the serial console runs over USB |
+| TX, RX | 0, 1 | The radio's UART (below); free without one. The serial console runs over USB |
 
 Avoid D13 (red LED on it), D4 (onboard status NeoPixel) and the BOOT button (GPIO7). SDA/SCL (GPIO2/3, the STEMMA QT
 port) are the I2C bus for controller boards, and for an RTC chip (DS3231, PCF8523 or DS1307 at 0x68, set in
 `config.RTC`) that keeps the clock's time through power-off. NEOPIXEL7 is output-only (level shifter), so it stays
 the spare LED channel.
+
+### The radio
+
+The radio co-processor (an ESP32 board: Bluetooth controllers, phones as controllers, the web settings page and the
+time; [radio/README.md](../radio/README.md)) talks to the SCORPIO over its TX/RX pins. Three wires, crossed over:
+
+| Radio board | Radio pin | SCORPIO pin |
+| --- | --- | --- |
+| ESP32 DevKit (ESP32-WROOM-32) or NodeMCU-32S | GPIO17 (TX) | RX (GPIO1) |
+| | GPIO16 (RX) | TX (GPIO0) |
+| LilyGO TTGO T-Display | G25 (TX) | RX (GPIO1) |
+| | G26 (RX) | TX (GPIO0) |
+| Any | GND | GND |
+
+Both sides are 3.3 V logic, so they connect directly. Power the radio from the board's 5 V LED supply into its VIN
+(DevKit, NodeMCU-32S) or 5V pin (T-Display). Go by the pin labels on the board: the NodeMCU-32S has the same GPIOs as
+the DevKit in a different order. Pins and baud rate are `RADIO_TX`, `RADIO_RX`, `RADIO_BAUD` in `config.py`; with no
+radio wired, the board runs as before.

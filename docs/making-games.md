@@ -38,10 +38,25 @@ Every frame (40 a second) the host:
 1. tells the game about controllers that arrived or left: `controller_added(controller, now)`,
    `controller_removed(controller, now)`
 2. hands it every action since the last frame, in order: `event(controller, action, now)`
-3. passes on command lines typed on the serial console: `command(text, now)`, which returns the reply to print (or
-   `None` for "no such command")
+3. passes on command lines typed on the serial console (or the USB page's console): `command(text, now)`, which
+   returns the reply to print (or `None` for "no such command"). List them in the class attribute `HELP`, as
+   (command, what it does) pairs, and the console's `help` shows them with the board's own:
+
+   ```python
+   class Game(Base):
+       HELP = (("speed 3", "how fast the lights run, 1-5"),
+               ("reset", "start over"))
+   ```
+
+   The board answers `help` and `mem` (free RAM) itself, and hubs add theirs (`radio`, `radio pair`), so don't
+   use those words. A command starting with a console key letter (m, n, p, b, w, a, s, d) is typed with a `/` in
+   front in a terminal; `help` shows it that way by itself, so write it in `HELP` without the `/`.
 4. lets it run its clock: `update(now)`
 5. sets every light dark, calls `draw(lights, now)`, and shows the result
+
+A game doesn't only start at power-up: the radio's web page can switch the board to another game while it runs.
+The host then makes the new game and calls `controller_added` for every controller already connected, so set
+everything up in `__init__` and take players from `controller_added`, the same either way.
 
 All six methods have do-nothing defaults; write only the ones you need. `now` is the board's clock in seconds. Use
 it for all timing instead of reading the time yourself, so tests can run your game on a fake clock.
@@ -166,7 +181,8 @@ For a game that needs the real time (the clock, `games/clock.py`): `w = walltime
 frame, then `w.ms()` (milliseconds since midnight), `w.hms()`, and `w.known` (False until the time's been set). It
 reads an RTC chip on the I2C bus if `config.RTC` names one, and otherwise keeps time on the board while it's on.
 Pass console commands to `w.command(text)` from your game's `command()` and players can set it by typing
-`time 14:32`; `tools/settime.ps1 COM16` sends the computer's time.
+`time 14:32` (list it in `HELP`, as `games/clock.py` does); `tools/settime.ps1 COM16` sends the computer's time,
+and so does the USB page when it connects.
 
 ## Controllers and actions
 
@@ -200,6 +216,39 @@ nice to have, never required.
 **Controllers come and go.** Wired ones arrive at power-up. Gamepads on I2C boards and the serial console arrive the
 first time they're used, and gamepads can disconnect. Decide what your game does then: hand the player to the
 computer, pause, or ignore it.
+
+## Setting up from the USB page (optional)
+
+The USB page (`Salient.html` on the CIRCUITPY drive) has a **New game** box. Its **New game** button needs nothing
+from your game: the host makes your `Game` afresh, so it starts at its own setup on the board. To also let people
+set a game up there and press **Start**, give your game two more methods:
+
+```python
+    def options(self):
+        """The form: one dict per field."""
+        who = [("computer", "The computer")] + [(c.id, c.name) for c in self.board.controllers]
+        return [
+            {"key": "size", "label": "Board size", "value": "big",
+             "choices": [("big", "Big"), ("small", "Small")]},
+            {"key": "player", "label": "Who plays", "choices": who, "value": "computer"},
+            {"key": "speed", "label": "Speed", "choices": [("1", "Slow"), ("2", "Fast")], "value": "1",
+             "show": {"size": ["big"]}, "note": "Only on the big board."},
+        ]
+
+    def setup(self, choices, now):
+        """choices: {"size": "big", "player": "usb-p1", ...}, strings, only the fields that were shown."""
+        if choices.get("player") not in ("computer",) + tuple(c.id for c in self.board.controllers):
+            return "That controller has gone; pick again."      # shown on the page; nothing started
+        ...                                                      # start the game
+        return None                                              # it started
+```
+
+Each field is a dropdown: `choices` are `(value, label)` with string values, `value` is the one chosen to begin
+with, `show` hides it unless other fields have those values, and `note` is a line under it. Controllers make good
+choices (their `.id`): the page asks for the form again whenever one comes or goes, and keeps what people already
+picked. `setup()` is only ever called with what `options()` offered, but check anyway: a controller can leave
+between the two. Salient's (`games/salient/game.py`) has Invasion or Island Rush, who plays each side, where Red
+lands, the seats for Island Rush and the difficulty.
 
 ## Trying a game
 

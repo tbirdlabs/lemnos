@@ -1,0 +1,13 @@
+HELLO 1.0.0
+SET brightness 6
+TIME 2026-11-01T01:59:00
+CTL p1 connected xbox
+CTL p2 connected wiimote
+IN p1 up
+IN p1 up
+IN p2 left
+IN p1 pick
+IN p2 back
+TIME 2026-11-01T01:00:00
+CTL p2 disconnected
+JUNK this line means nothing

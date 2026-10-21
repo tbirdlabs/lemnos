@@ -12,4 +12,10 @@
 #   controls.py   controllers: the inputs and hubs below, turned into (controller, action)
 #   inputs.py     wired inputs: button, encoder, one-switch scan, resistor ladder
 #   hubs.py       I2C controller boards, the serial console
+#   radio.py      the radio co-processor: Bluetooth and phone controllers, web settings, the time (radio/)
+#   usbpage.py    the USB page (Salient.html): settings, players, the lights on screen, over the serial console
+#   link.py       the text lines the radio and the USB page share
+#   saved.py      settings remembered through power-off (the game, brightness)
 #   plugins.py    how config.py names your own drivers, inputs, hubs and games
+
+VERSION = "2026.10.20"          # the board software; sent to the radio in HELLO

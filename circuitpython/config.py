@@ -31,7 +31,7 @@ BARS_AT = ((1, 0), (2, 0), (3, 0), (4, 0), (5, 0), (6, 0))     # seats 1..6 (sea
 #   ISLAND_AT = (0, 0)
 #   BARS_AT = ((0, 111), (0, 121), (0, 131), (0, 141), (0, 151), (0, 161))   # 155, 165, ... on the small board
 PIXEL_ORDER = "GRB"           # WS2812B; "GRBW" strips aren't supported yet
-BRIGHTNESS = 1.0              # overall, before the power limit
+BRIGHTNESS = 0.1              # overall, before the power limit; the USB page sets 1-10 over it (5 = 10%, 10 = full)
 POWER_LIMIT_A = 4.0           # the LEDs' share of the 5 V supply; None = no limit (full brightness)
 MA_PER_CHANNEL = 20           # current of one color channel of one LED at full
 MA_IDLE = 1                   # current of each LED when dark
@@ -75,12 +75,24 @@ CONTROLLERS = [
 #               on them becomes its own controller (seat None) the first time it sends something.
 #   "console"   the USB serial console as up to 6 controllers, for testing: type m (move), n (move back), p (pick),
 #               b (back), w/a/s/d (up/left/down/right); a digit 1-6 switches which console controller the keys go to.
-CONTROLLER_HUBS = ("i2c", "console")
+#               The USB page (Salient.html on the CIRCUITPY drive) works through it too.
+#   "radio"     the radio co-processor (radio/README.md): an ESP32 on the TX/RX pins bringing Bluetooth controllers
+#               (Wiimote, Xbox, Xbox Adaptive Controller), phones as controllers, the web settings page and the
+#               time. Each of its player slots p1..p6 is a controller. With no radio attached it does nothing.
+CONTROLLER_HUBS = ("i2c", "console", "radio")
 I2C_ADDRESSES = range(0x30, 0x40)   # where to look for controller boards
 I2C_FREQUENCY = 100000
 I2C_RESCAN_S = 5                     # how often to look for boards plugged in later
+# The radio: SCORPIO TX (GPIO0) to the radio's RX, SCORPIO RX (GPIO1) to its TX, and ground (docs/wiring.md)
+RADIO_TX = "TX"
+RADIO_RX = "RX"
+RADIO_BAUD = 115200
+RADIO_SEATS = None                   # the seat each radio player slot sits at, p1 first, e.g. (1, 4, 2, 5, 3, 6);
+                                     # None: its player chooses a side when joining
 
 # ---- Time of day (gamehost/walltime.py: the clock) ----
+# With the radio attached, the time comes from it (internet time, in the time zone set on its web page, daylight
+# saving included) and is written to the RTC chip below too. Without it:
 # An RTC chip on the STEMMA QT I2C bus keeps the time through power-off, on its coin cell: "ds3231" (Adafruit's
 # DS3231 Precision RTC), "pcf8523" or "ds1307" (all at address 0x68), or None. If none answers, the board keeps
 # time itself while it's on; set it from the serial console ("time 14:32") or tools/settime.ps1 after power-up.

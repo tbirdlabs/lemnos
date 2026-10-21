@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Salient pad</title>
+<style>
+:root { --bg: #16171a; --ink: #ecebe8; --muted: #8d9097; --pad: #26282d; --edge: #3a3d44; --press: #fb923c;
+        --pick: #c2410c; --pick-press: #fb923c; --ok: #4ade80; --bad: #f87171; }
+@media (prefers-color-scheme: light) {
+  :root { --bg: #f1efea; --ink: #1d1f22; --muted: #6a6d73; --pad: #ffffff; --edge: #d9d5cc; --press: #fdba74;
+          --pick: #c2410c; --pick-press: #ea580c; --ok: #15803d; --bad: #b91c1c; }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.3 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+       touch-action: none; user-select: none; -webkit-user-select: none; overflow: hidden;
+       display: flex; flex-direction: column; }
+header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; }
+#who { font-size: 22px; font-weight: 700; flex: 1; }
+#msg { color: var(--muted); font-size: 14px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; background: var(--bad); flex: none; }
+.dot.on { background: var(--ok); }
+header a { color: var(--muted); font-size: 14px; text-decoration: none; padding: 8px; }
+.pad { flex: 1; display: grid; grid-template-columns: 1fr 1fr; align-items: center; justify-items: center;
+       gap: 16px; padding: 8px 16px 24px; }
+@media (orientation: portrait) { .pad { grid-template-columns: 1fr; grid-template-rows: 1fr auto; } }
+#dpad { position: relative; width: min(78vmin, 340px); aspect-ratio: 1; border-radius: 50%; background: var(--pad);
+        border: 2px solid var(--edge); }
+#dpad .arm { position: absolute; background: var(--edge); border-radius: 10px; transition: background .05s; }
+#dpad .arm.on { background: var(--press); }
+#up { left: 36%; right: 36%; top: 6%; height: 34%; }
+#down { left: 36%; right: 36%; bottom: 6%; height: 34%; }
+#left { top: 36%; bottom: 36%; left: 6%; width: 34%; }
+#right { top: 36%; bottom: 36%; right: 6%; width: 34%; }
+.buttons { display: flex; flex-direction: column; align-items: center; gap: 22px; }
+@media (orientation: portrait) { .buttons { flex-direction: row-reverse; } }
+.btn { border-radius: 50%; display: grid; place-items: center; font-weight: 700; letter-spacing: .04em;
+       border: 2px solid var(--edge); }
+#pick { width: min(34vmin, 150px); aspect-ratio: 1; background: var(--pick); color: #fff; border-color: transparent;
+        font-size: 22px; }
+#pick.on { background: var(--pick-press); }
+#back { width: min(22vmin, 96px); aspect-ratio: 1; background: var(--pad); color: var(--ink); font-size: 17px; }
+#back.on { background: var(--press); color: #1b1206; }
+</style>
+</head>
+<body>
+<header>
+  <span id="dot" class="dot"></span>
+  <span id="who">Connecting&hellip;</span>
+  <span id="msg"></span>
+  <a href="/">Settings</a>
+</header>
+<div class="pad">
+  <div id="dpad" aria-label="Move">
+    <div id="up" class="arm"></div><div id="down" class="arm"></div>
+    <div id="left" class="arm"></div><div id="right" class="arm"></div>
+  </div>
+  <div class="buttons">
+    <div id="pick" class="btn" role="button">PICK</div>
+    <div id="back" class="btn" role="button">BACK</div>
+  </div>
+</div>
+<script>
+"use strict";
+const UP = 1, DOWN = 2, LEFT = 4, RIGHT = 8;
+const $ = (id) => document.getElementById(id);
+let ws = null, dirs = 0, pick = false, back = false, sent = "", alive = null;
+
+function phoneId() {
+  let id = null;
+  try { id = localStorage.getItem("salient-pad-id"); } catch (e) {}
+  if (!id || !/^[0-9a-f]{12}$/.test(id)) {
+    const b = new Uint8Array(6);
+    if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(b);
+    else for (let i = 0; i < 6; i++) b[i] = Math.floor(Math.random() * 256);
+    id = Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+    try { localStorage.setItem("salient-pad-id", id); } catch (e) {}
+  }
+  return id;
+}
+
+function send() {
+  const msg = "s " + dirs + " " + (pick ? 1 : 0) + " " + (back ? 1 : 0);
+  if (msg === sent || !ws || ws.readyState !== 1) return;
+  ws.send(msg);
+  sent = msg;
+}
+
+function show() {
+  for (const [id, bit] of [["up", UP], ["down", DOWN], ["left", LEFT], ["right", RIGHT]])
+    $(id).classList.toggle("on", !!(dirs & bit));
+  $("pick").classList.toggle("on", pick);
+  $("back").classList.toggle("on", back);
+}
+
+function buzz() { if (navigator.vibrate) navigator.vibrate(8); }
+
+function setDirs(d) { if (d !== dirs) { if (d) buzz(); dirs = d; show(); send(); } }
+
+// The D-pad: wherever the thumb is, the axis it's furthest along (outside a small middle)
+const touches = new Map();
+function dirAt(x, y) {
+  const r = $("dpad").getBoundingClientRect();
+  const dx = x - (r.left + r.width / 2), dy = y - (r.top + r.height / 2);
+  if (Math.hypot(dx, dy) < r.width * 0.12) return 0;
+  return Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? LEFT : RIGHT) : (dy < 0 ? UP : DOWN);
+}
+function padUpdate() { let d = 0; for (const v of touches.values()) d = v; setDirs(d); }
+$("dpad").addEventListener("pointerdown", (e) => {
+  $("dpad").setPointerCapture(e.pointerId);
+  touches.set(e.pointerId, dirAt(e.clientX, e.clientY));
+  padUpdate();
+});
+$("dpad").addEventListener("pointermove", (e) => {
+  if (!touches.has(e.pointerId)) return;
+  touches.set(e.pointerId, dirAt(e.clientX, e.clientY));
+  padUpdate();
+});
+for (const ev of ["pointerup", "pointercancel", "lostpointercapture"])
+  $("dpad").addEventListener(ev, (e) => { touches.delete(e.pointerId); padUpdate(); });
+
+function hold(id, set) {
+  const b = $(id), held = new Set();
+  b.addEventListener("pointerdown", (e) => { b.setPointerCapture(e.pointerId); held.add(e.pointerId);
+                                             buzz(); set(true); });
+  for (const ev of ["pointerup", "pointercancel", "lostpointercapture"])
+    b.addEventListener(ev, (e) => { held.delete(e.pointerId); if (!held.size) set(false); });
+}
+hold("pick", (v) => { pick = v; show(); send(); });
+hold("back", (v) => { back = v; show(); send(); });
+
+// A keyboard works too (testing from a computer): arrows, Enter or Space = pick, Esc or Backspace = back
+const KEYS = { ArrowUp: UP, ArrowDown: DOWN, ArrowLeft: LEFT, ArrowRight: RIGHT };
+let keyDirs = 0;
+function key(e, down) {
+  if (KEYS[e.key]) { keyDirs = down ? keyDirs | KEYS[e.key] : keyDirs & ~KEYS[e.key]; setDirs(keyDirs); }
+  else if (e.key === "Enter" || e.key === " ") { pick = down; show(); send(); }
+  else if (e.key === "Escape" || e.key === "Backspace") { back = down; show(); send(); }
+  else return;
+  e.preventDefault();
+}
+addEventListener("keydown", (e) => { if (!e.repeat) key(e, true); });
+addEventListener("keyup", (e) => key(e, false));
+
+function connect() {
+  if (ws) return;
+  $("who").textContent = "Connecting…";
+  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
+  ws.onopen = () => { $("dot").classList.add("on"); ws.send("hello " + phoneId()); sent = ""; send(); };
+  ws.onmessage = (e) => {
+    const m = e.data.split(" ");
+    if (m[0] === "slot") { $("who").textContent = "Player " + m[1]; $("msg").textContent = ""; }
+    else if (m[0] === "full") { $("who").textContent = "No room"; $("msg").textContent = "All player slots are in use"; }
+  };
+  ws.onclose = () => {
+    ws = null;
+    $("dot").classList.remove("on");
+    $("who").textContent = "Reconnecting…";
+    if (document.visibilityState === "visible") setTimeout(connect, 1000);
+  };
+}
+// Leave when the page is hidden (screen off, another app), so the player slot frees at once; come back after
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") { if (ws) ws.close(); }
+  else connect();
+});
+alive = setInterval(() => { if (ws && ws.readyState === 1) ws.send("k"); }, 2000);
+connect();
+</script>
+</body>
+</html>

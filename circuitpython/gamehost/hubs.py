@@ -6,12 +6,17 @@
 #   "console"   the USB serial console as up to 6 controllers, for testing: m (move), n (move back), p (pick),
 #               b (back), w/a/s/d (up/left/down/right); a digit 1-6 switches which controller the keys belong to.
 #               It also takes typed commands for the game (Game.command): a line that starts with any other letter
-#               (or with "/") up to Enter, such as "time 14:32" for the clock.
+#               (or with "/") up to Enter, such as "time 14:32" for the clock. A line starting with "!" is from the
+#               USB page (Salient.html; usbpage.py), which works through this hub.
+#   "radio"     the radio co-processor on the TX/RX pins (radio.py): its player slots p1..p6 are controllers
 #
 # A hub is a class made with the Controls it feeds, with:
 #   poll(now, emit)     called every frame; calls emit(controller, action) for each action since the last poll
 # It gets its controllers from controls.get(id, name, seat, can) (made the first time, the same object after),
 # and calls controls.remove(controller) when one goes away. Your own: "module.Class" in config.py (plugins.py).
+# A hub may also have command(text): console commands of its own, answered before the game's ("radio pair"), listed
+# for the console's "help" in HELP, (command, what it does) pairs; and shown(lights, now): called after each frame
+# goes to the LEDs (the USB page's board view).
 
 import config
 from . import actions as A
@@ -91,14 +96,28 @@ CONSOLE_KEYS = {"m": A.MOVE, "n": A.MOVE_BACK, "p": A.PICK, "b": A.BACK,
 class Console:
     """The USB serial console as up to 6 controllers (for testing), and a command line for the game."""
 
-    def __init__(self, controls):
-        import supervisor
-        import sys
-        self.sup = supervisor
-        self.stdin = sys.stdin
+    def __init__(self, controls, sup=None, stdin=None, write=print):
+        """sup, stdin, write: supervisor, sys.stdin and print unless given (tests pass their own)."""
+        if sup is None:
+            import supervisor as sup
+        if stdin is None:
+            import sys
+            stdin = sys.stdin
+        self.sup = sup
+        self.stdin = stdin
         self.controls = controls
         self.which = 1
         self.line = None           # a command being typed, or None
+        self.proto = None          # a line from the USB page being read (it started with "!"), or None
+        out = None
+        if write is print:         # on the board: the page's lights go straight out as bytes, with no copies
+            try:
+                import usb_cdc
+                if usb_cdc.console is not None:
+                    out = usb_cdc.console.write
+            except ImportError:
+                pass
+        self.page = Page(controls, write, out)
 
     def typed(self, ch):
         """One character of a command line: echoed, since the console doesn't echo while code runs."""
@@ -116,12 +135,28 @@ class Console:
             print(ch, end="")
 
     def poll(self, now, emit):
+        page = self.page
+        if page.active and not getattr(self.sup.runtime, "serial_connected", True):
+            page.closed()              # the computer closed the port
+        page.poll(now)
         n = self.sup.runtime.serial_bytes_available
         if not n:
             return
         for ch in self.stdin.read(n):
-            if self.line is not None:
+            if self.proto is not None:
+                if ch in "\r\n":
+                    text = self.proto
+                    self.proto = None
+                    try:
+                        page.line(text, now, emit)
+                    except MemoryError:    # dropped; the page asks again or the player presses again
+                        pass
+                elif len(self.proto) <= page.MAX_LINE:
+                    self.proto += ch
+            elif self.line is not None:
                 self.typed(ch)
+            elif ch == "!":
+                self.proto = ""
             elif ch == "/" or (ch.isalpha() and ch.lower() not in CONSOLE_KEYS):
                 self.line = ""
                 if ch != "/":
@@ -132,5 +167,11 @@ class Console:
                 c = self.controls.get("console%d" % self.which, "console %d" % self.which, None, A.ALL)
                 emit(c, CONSOLE_KEYS[ch.lower()])
 
+    def shown(self, lights, now):
+        self.page.shown(lights, now)
 
-HUBS = {"i2c": I2CBoards, "console": Console}
+
+from .radio import Radio
+from .usbpage import Page
+
+HUBS = {"i2c": I2CBoards, "console": Console, "radio": Radio}

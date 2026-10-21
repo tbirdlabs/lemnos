@@ -5,11 +5,15 @@ Every player plays with the same few actions: **move**, **pick** and **back**. S
 not work for another, so the board takes any mix of devices, and a game never knows which device an action came
 from. It only knows which controller sent it, and which actions that controller can send.
 
-Controllers are listed in `circuitpython/config.py`. Three kinds of source feed them:
+Controllers are listed in `circuitpython/config.py`. Four kinds of source feed them:
 
-- **Wired inputs** on the SCORPIO's free pins (17 of them; see [wiring.md](wiring.md)): `gamehost/inputs.py`.
-- **Outboard controller boards** on the I2C bus (an ESP32 with Bluepad32 for Bluetooth gamepads, a Pico reading a
-  switch box, and so on), chained on the STEMMA QT port: the `"i2c"` hub in `gamehost/hubs.py`.
+- **Wired inputs** on the SCORPIO's free pins (see [wiring.md](wiring.md)): `gamehost/inputs.py`.
+- **The radio**, an ESP32 on the TX/RX pins: Bluetooth controllers (Wiimote, Xbox, Xbox Adaptive Controller) and
+  phones, up to six players: the `"radio"` hub in `gamehost/radio.py` ([below](#the-radio)).
+- **Outboard controller boards** on the I2C bus (a Pico reading a switch box, and so on), chained on the STEMMA QT
+  port: the `"i2c"` hub in `gamehost/hubs.py`.
+- **The USB page** (`Salient.html` on the CIRCUITPY drive, in Edge, Chrome or Firefox): an on-screen D-pad and the
+  keyboard, up to six players (`usb-p1`..`usb-p6`), through the `"console"` hub (`gamehost/usbpage.py`).
 - **The USB serial console**, for testing: up to 6 virtual controllers: the `"console"` hub.
 
 `CONTROLLER_HUBS` in `config.py` lists the hubs to start; take one out to turn it off. Games see none of this, only
@@ -49,6 +53,35 @@ A source that brings any number of controllers of its own (Bluetooth straight to
 made with the `Controls`, with `poll(now, emit)` calling `emit(controller, action)`, getting its controllers from
 `controls.get(id, name, seat, can)` and calling `controls.remove(controller)` when one goes away. Name it in
 `CONTROLLER_HUBS` the same way.
+
+## The radio
+
+The radio co-processor (`radio/` in this repo; setup and flashing in [radio/README.md](../radio/README.md)) brings
+the controllers that need a radio: Bluetooth gamepads, and phones over WiFi. It sorts them into **player slots**
+p1 to p6, and each slot is one controller to the game (`radio-p1`, named like "player 1 (Xbox)"), whatever device
+is in it. A controller keeps its slot when it reconnects, and the slots can be rearranged on the radio's web page.
+Every radio controller sends only up, down, left, right, pick and back; the game never learns the device.
+
+| Controller | Moves | Pick | Back |
+| --- | --- | --- | --- |
+| Wiimote, upright in one hand (the default) | D-pad | A | B (the trigger) |
+| Wiimote, sideways in two hands (chosen per Wiimote on the radio's page) | D-pad | 2 | 1 |
+| Xbox One (model 1708, current firmware) or Series | D-pad or left stick | A | B |
+| Xbox Adaptive Controller | D-pad, or switches in its 3.5 mm jacks set to D-pad | A | B |
+| Phone (the radio's web page `/pad`) | the on-screen D-pad | PICK | BACK |
+| Other Bluetooth gamepads Bluepad32 knows | D-pad or left stick | A (bottom face button) | B (right) |
+
+A held direction repeats, the same on the D-pad and the stick: once at once, again after 0.4 s, then every 0.16 s.
+The stick has a deadzone and doesn't flicker between two directions on a diagonal. The Adaptive Controller's jacks
+arrive as its A, B and D-pad, so single switches work through it: assign a jack to A and the switch picks.
+
+A radio controller has no `seat` (its player chooses a side when joining) unless `RADIO_SEATS` in `config.py` gives
+the slots seats. Pairing mode (a minute, for new controllers) starts from the web page, the radio's own button, or the
+console: `radio pair` (`radio` alone lists who's connected). Without a radio, the hub sends a hello every few seconds
+and nothing else happens.
+
+The board also takes settings from the radio's web page (brightness, the game to play; the host applies them) and
+the time of day (the clock). The UART protocol is in [NOTES.md](../NOTES.md#radio-protocol).
 
 ## I2C controller boards (protocol v1)
 

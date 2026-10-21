@@ -1,0 +1,55 @@
+# Salient radio: original ESP32 only (dual-mode Bluetooth: Classic for the Wiimote, BLE for Xbox controllers).
+CONFIG_IDF_TARGET="esp32"
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+CONFIG_XTAL_FREQ_AUTO=y
+CONFIG_FREERTOS_HZ=1000
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=6144
+CONFIG_FREERTOS_USE_TRACE_FACILITY=y
+CONFIG_FREERTOS_USE_STATS_FORMATTING_FUNCTIONS=y
+
+# Bluetooth: BTstack (Bluepad32) on the controller's VHCI, both Classic and BLE (Bluepad32's examples/esp32 settings)
+CONFIG_BT_ENABLED=y
+CONFIG_BT_CONTROLLER_ONLY=y
+CONFIG_BTDM_CTRL_MODE_BTDM=y
+CONFIG_BTDM_CTRL_BR_EDR_MAX_ACL_CONN=5
+CONFIG_BTDM_CTRL_BLE_MAX_CONN=5
+CONFIG_BTDM_CTRL_BR_EDR_MAX_SYNC_CONN=0
+CONFIG_BTDM_CTRL_AUTO_LATENCY=y
+CONFIG_BTDM_CTRL_MODEM_SLEEP=n
+CONFIG_BTSTACK_AUDIO=n
+CONFIG_BLUEPAD32_PLATFORM_CUSTOM=y
+CONFIG_BLUEPAD32_MAX_DEVICES=4
+CONFIG_BLUEPAD32_MAX_ALLOWLIST=8
+CONFIG_BLUEPAD32_USB_CONSOLE_ENABLE=y
+CONFIG_BLUEPAD32_ENABLE_BLE_BY_DEFAULT=y
+CONFIG_BLUEPAD32_ENABLE_VIRTUAL_DEVICE_BY_DEFAULT=n
+
+# WiFi alongside Bluetooth, the web server (with WebSockets for the phone pad)
+CONFIG_ESP_COEX_SW_COEXIST_ENABLE=y
+CONFIG_HTTPD_WS_SUPPORT=y
+CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
+CONFIG_HTTPD_MAX_URI_LEN=512
+
+
+# IRAM: Bluetooth (Classic + BLE) and WiFi together don't fit it with WiFi's and lwIP's speed tweaks in IRAM.
+# This link carries a few lines a second, so they go to flash.
+CONFIG_ESP_WIFI_IRAM_OPT=n
+CONFIG_ESP_WIFI_RX_IRAM_OPT=n
+CONFIG_LWIP_IRAM_OPTIMIZATION=n
+
+# Memory. Bluetooth Classic, BLE and WiFi together leave little of the ESP32's RAM (the "heap:" lines at boot show
+# it), and a phone joining opens several connections at once. This link and these pages need no throughput, so the
+# buffers sized for speed shrink: WiFi's fixed receive buffers (16 KB of them), its aggregation, lwIP's per-connection
+# windows. (On a board built before, build.cmd's tools/apply_defaults.py brings these in.)
+CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=4
+CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=12
+CONFIG_ESP_WIFI_DYNAMIC_TX_BUFFER_NUM=16
+CONFIG_ESP_WIFI_AMPDU_TX_ENABLED=n
+CONFIG_ESP_WIFI_AMPDU_RX_ENABLED=n
+CONFIG_ESP_WIFI_MGMT_SBUF_NUM=16
+CONFIG_LWIP_TCP_SND_BUF_DEFAULT=2880
+CONFIG_LWIP_TCP_WND_DEFAULT=2880
+CONFIG_LWIP_MAX_SOCKETS=12

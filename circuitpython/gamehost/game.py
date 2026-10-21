@@ -40,9 +40,13 @@ class Game:
         action      one of actions.ALL: "move", "move_back", "pick", "back", "up", "down", "left", "right".
         """
 
+    # The console commands command() takes, for the console's "help": (command, what it does) pairs, such as
+    # ("time 14:32", "set the clock"). Leave it empty if the game has none.
+    HELP = ()
+
     def command(self, text, now):
         """A command line typed on the serial console (or sent by a tool), such as "time 14:32" for the clock.
-        Return the reply to print, or None if the game has no such command (the host says so)."""
+        Return the reply to print, or None if the game has no such command (the host says so). List them in HELP."""
         return None
 
     def update(self, now):
@@ -60,3 +64,24 @@ class Game:
     def controller_removed(self, controller, now):
         """A controller went away (an I2C gamepad disconnected). It sends nothing until controller_added again.
         A game might let the computer take over that player, or pause."""
+
+    # ---- Optional: setting up a game from the USB page (Salient.html) instead of on the board ----
+    # The page shows options() as a form with a Start button, and calls setup() with what was chosen. Its New game
+    # button needs nothing from the game: the host makes the game afresh, so it's back at its own setup on the board.
+
+    def options(self):
+        """The fields of the page's setup form, as a list of dicts:
+            key       the field's name in setup()'s choices
+            label     what people see
+            choices   [(value, label), ...]; values are strings. Controllers can be choices too (their .id as the
+                      value): the page asks again whenever controllers come or go
+            value     the one chosen to begin with
+            show      optional {key: [values]}: show the field only while those fields have one of those values
+            note      optional: a line under the field
+        [] (the default): the game has no setup form; the page offers only New game."""
+        return []
+
+    def setup(self, choices, now):
+        """Start a game as set up on the page. choices: {key: value} for each field options() gave (strings).
+        Return None if it started, or a message to show on the page if it can't (it's changed nothing then)."""
+        return "This game has no setup here."

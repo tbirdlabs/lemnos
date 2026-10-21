@@ -11,6 +11,7 @@ They meet in one small interface, the `Game` class in [`gamehost/game.py`](gameh
 
 | Where | What it is |
 | --- | --- |
+| `Salient.html` | **The USB page.** Open it from the CIRCUITPY drive in Edge, Chrome or Firefox: the board's lights on screen, the game, brightness, the clock, the players, an on-screen controller and the console. Nothing to install. |
 | `config.py` | **Edit this one.** Which game runs, which board (large or small), the LED driver and where the LEDs are, the controllers. |
 | `code.py` | Starts the host at power-up. |
 | `gamehost/game.py` | The `Game` base class: the whole interface between the board and a game. |
@@ -23,19 +24,27 @@ They meet in one small interface, the `Game` class in [`gamehost/game.py`](gameh
 | `gamehost/controls.py` | Controllers: the inputs and hubs below, turned into (controller, action). |
 | `gamehost/inputs.py` | Wired inputs: button, encoder, one-switch scan, resistor ladder (`docs/controllers.md`). |
 | `gamehost/hubs.py` | Sources with their own controllers: I2C controller boards, the serial console (which also takes typed commands for the game). |
-| `gamehost/walltime.py` | The time of day: an RTC chip on the I2C bus (`config.RTC`) or the board's own clock; `time 14:32` on the console sets it. |
+| `gamehost/link.py` | The text protocol the radio and the USB page share (IN, CTL, TIME, SET, HELLO lines). |
+| `gamehost/usbpage.py` | The USB page's side on the board: answers it over the serial console, sends it the lights and what changed. |
+| `gamehost/saved.py` | Settings remembered through power-off (the game, brightness), set from the USB page or the radio's web page; `config.py` is the default. |
+| `gamehost/radio.py` | The radio co-processor on TX/RX (`radio/`): Bluetooth and phone controllers by player slot, settings from its web page (brightness, the game), the time. |
+| `gamehost/walltime.py` | The time of day: from the radio if there is one, else an RTC chip on the I2C bus (`config.RTC`) or the board's own clock; `time 14:32` on the console sets it. |
 | `gamehost/plugins.py` | How `config.py` names your own drivers, inputs, hubs and games (`"module.Name"`). |
 | `games/paint.py` | The example game: paint spots in your color. Also a quick test of every light and controller. |
 | `games/testpattern.py` | Test pattern: red, then green, then blue fill every LED one at a time, left to right; pause and step to print an LED's strip address. |
 | `games/clock.py` | An analog wall clock: the island is the face, the six bars a 60-light minute ring. |
 | `games/salient/` | Salient: `game.py` (the board's side: setup, play UI, the computer's turns), `engine.py` (rules), `ai.py`, `difficulty.py`, `rules.py` (generated; don't edit), `bench.py` (bring-up). |
-| `tools/` | Desktop only, never copied to the board: tests, the JS / Python replay comparison, the profiler, `gen_rules.js`, `settime.ps1` (sets the board's clock from this computer). |
+| `tools/` | Desktop only, never copied to the board: tests, the JS / Python replay comparison, the profiler, `gen_rules.js`, `deploy.ps1` (puts the software on the board), `settime.ps1` (sets the board's clock from this computer). |
 
 ## Tests (desktop, from this folder)
 
 ```
 py -3 tools/test_host.py        the board's parts: LED maps, drivers, effects, dice, geometry, controllers, host, paint, test pattern, clock
 py -3 tools/test_salient.py     Salient played through the board UI by simulated controllers, checked against the engine
+py -3 tools/test_radio.py       the radio hub over a fake UART, and a two-player Salient game played through it
+py -3 tools/test_usbpage.py     the USB page's side: its lines, players, settings saved and restored, the lights sent
+run-node tools/test_page.js     Salient.html itself, without a browser, against the board software on this computer
+                                (tools/page_bridge.py); no Node: set ELECTRON_RUN_AS_NODE=1 and run it with VS Code's Code.exe
 ```
 
 ## Salient on the board
@@ -72,10 +81,14 @@ same seed plays the same game on both. They import nothing from `gamehost/`.
 1. Install CircuitPython 10 for the Feather RP2040 SCORPIO (tested on 10.3.1), and from the 10.x bundle into
    `lib/`: `adafruit_neopxl8`, `adafruit_pioasm` and `adafruit_pixelbuf` (or `neopixel` with
    `LED_DRIVER = "neopixel"`).
-2. Compile with CircuitPython's own `mpy-cross` (matching the firmware version). Copy to CIRCUITPY: `code.py` and
-   `config.py` as they are, the `gamehost/` and `games/` folders with each `.py` compiled to `.mpy` except the
-   `__init__.py` files (copy those as they are). Leave out `tools/`. Compiling the source on the board itself needs
-   a lot more RAM than running it.
+2. With the board plugged in: `powershell -ExecutionPolicy Bypass -File tools\deploy.ps1`. It compiles `gamehost/`
+   and every game in a folder (`games/salient/`) to `.mpy` with Adafruit's `mpy-cross` for the board's exact
+   CircuitPython version (downloaded the first time), copies the games in one file (`paint.py`, `clock.py`, ...)
+   as `.py` so they can be edited right on the drive, and copies `code.py` and `Salient.html`. It writes only what
+   changed, removes `.py` copies the new `.mpy` files replace, and never overwrites the drive's `config.py`
+   (`-DryRun` says what it would do). Compiling the source on the board itself takes a lot more RAM than running it:
+   Salient doesn't fit as `.py`. A small game of your own can just be copied to `games/` as a `.py`. After moving
+   to a new CircuitPython version, run it again (`.mpy` files only load on the version they were made for).
 3. Wire to `docs/wiring.md`, or change `config.py` to match your wiring.
 4. Bring-up: run Salient's bench first (from the REPL: `from games.salient import bench; bench.main()`). It prints
    the worst AI move time and the lowest free RAM, and draws each position, which checks the LED map. To check
@@ -86,3 +99,29 @@ same seed plays the same game on both. They import nothing from `gamehost/`.
 5. Then `code.py` runs the game. The serial console works as up to 6 controllers for testing (m, n, p, b, w/a/s/d;
    a digit switches controller). A line starting with any other letter is a command for the game, such as
    `time 14:32` for the clock (`GAME = "clock"`); `powershell -File tools\settime.ps1 COM16` sends this computer's time.
+   With the radio wired (`radio/README.md`), `radio` lists its players and `radio pair` starts pairing. `/mem`
+   prints the free RAM, in any game (the `/` because `m` is a key; the USB page adds it), and `help` lists every
+   command there is right now (the board's, the radio's and the running game's, from their `HELP`) and the keys.
+
+## The USB page
+
+Plug the board into a computer and open `Salient.html` on the CIRCUITPY drive in **Edge, Chrome or Firefox** (Edge is
+already on every Windows PC; Safari doesn't have Web Serial). Press **Connect** and pick the board's port; after
+that it connects by itself whenever the page is open and the board is plugged in. Only one program can have the port
+open, so close Mu, Thonny or a serial monitor first.
+
+- **The board:** its lights live, as the game draws them (before brightness), about 15 times a second.
+- **Game and brightness:** take effect at once and are remembered through power-off (`gamehost/saved.py`, in the
+  RP2040's own non-volatile memory, so the drive stays untouched). **Back to config.py's** forgets them. The radio's
+  web page sets the same two settings; the last one set wins.
+- **New game:** the running game's setup as a form (Salient: Invasion or Island Rush, who plays each side, where Red
+  lands, seats, difficulty) and **Start**; or **New game at the board**, back to the game's own setup on the board.
+  A game offers the form with `options()` and `setup()` (`docs/making-games.md`).
+- **The clock** is set from the computer's when the page connects.
+- **Play from this computer:** a D-pad, Pick, Back and Move, or the keyboard (arrows, Enter, Esc, Space); up to six
+  players (`usb-p1`..`usb-p6`). They leave the game when the page closes.
+- **Console:** what the board prints, commands for the game, and restarting the board. If the program stops with an
+  error, the page says so; **Restart without saved settings** gets out of a saved game that won't run.
+
+The page and the board talk over the same serial console people type on: the page's lines start with `!`, the
+board's answers with `@` (`gamehost/usbpage.py` lists them).

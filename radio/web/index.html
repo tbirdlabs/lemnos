@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Salient board</title>
+<style>
+:root {
+  --bg: #f4f2ee; --card: #ffffff; --ink: #1d1f22; --muted: #6a6d73; --line: #e2dfd8;
+  --accent: #c2410c; --accent-ink: #ffffff; --ok: #15803d; --warn: #b45309; --bad: #b91c1c; --field: #faf9f7;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #131416; --card: #1d1f23; --ink: #ecebe8; --muted: #9a9ca2; --line: #30333a;
+          --accent: #fb923c; --accent-ink: #1b1206; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171; --field: #25282d; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+       font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 560px; margin: 0 auto; padding: 16px 16px 48px; }
+header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 4px 0 16px; }
+h1 { font-size: 24px; margin: 0; letter-spacing: .01em; }
+h1 span { color: var(--accent); }
+#clock { font-variant-numeric: tabular-nums; color: var(--muted); }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 0 0 14px; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 12px; }
+.row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.row:first-of-type { border-top: 0; padding-top: 0; }
+.grow { flex: 1; min-width: 0; }
+.name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sub { color: var(--muted); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); flex: none; }
+.dot.on { background: var(--ok); }
+label { display: block; font-size: 14px; color: var(--muted); margin: 12px 0 4px; }
+label:first-child { margin-top: 0; }
+select, input[type=text], input[type=password] {
+  width: 100%; font: inherit; color: var(--ink); background: var(--field); border: 1px solid var(--line);
+  border-radius: 8px; padding: 10px 12px; min-height: 44px; }
+.row select { width: auto; min-height: 40px; padding: 6px 8px; }
+.row select.grip { display: block; width: 100%; margin-top: 6px; }
+input[type=range] { width: 100%; accent-color: var(--accent); min-height: 32px; }
+button { font: inherit; font-weight: 600; border-radius: 8px; border: 1px solid var(--line); background: var(--field);
+         color: var(--ink); padding: 10px 14px; min-height: 44px; cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.quiet { background: none; border-color: transparent; color: var(--muted); padding: 8px; min-height: 40px; }
+button.danger { color: var(--bad); }
+button:disabled { opacity: .5; cursor: default; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.note { color: var(--muted); font-size: 14px; margin: 8px 0 0; }
+.note b { color: var(--ink); }
+.status { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); margin-bottom: 12px; }
+.pairing { background: color-mix(in srgb, var(--accent) 14%, transparent); border-radius: 8px; padding: 10px 12px;
+           margin-top: 12px; }
+.pairing b { font-variant-numeric: tabular-nums; }
+.hidden { display: none !important; }
+.val { float: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+a { color: var(--accent); }
+footer { color: var(--muted); font-size: 13px; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1><span>Salient</span> board</h1>
+    <div id="clock"></div>
+  </header>
+
+  <section>
+    <h2>Players</h2>
+    <div id="controllers"></div>
+    <p id="none" class="note hidden">No controllers yet. Pair one below, or play from this phone.</p>
+    <div class="actions">
+      <button id="pair" class="primary">Pair a controller</button>
+      <a href="/pad"><button>Play from this phone</button></a>
+    </div>
+    <div id="pairing" class="pairing hidden">
+      Pairing for <b id="left">60</b> s. <button id="stop" class="quiet">Stop</button>
+      <p class="note"><b>Xbox:</b> turn it on, then hold the small pair button on top until the Xbox button flashes fast.
+        <b>Adaptive Controller:</b> the same, with its pair button on the top edge.
+        <b>Wiimote:</b> press the red SYNC button under the battery cover (pressing 1 and 2 also works, but then it
+        won't reconnect by itself).</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Board</h2>
+    <div class="status"><span id="bdot" class="dot"></span><span id="bstatus">Waiting for the board</span></div>
+    <label for="game">Game at power-up</label>
+    <select id="game"></select>
+    <label for="bright">Brightness <span id="bval" class="val"></span></label>
+    <input id="bright" type="range" min="0" max="10" step="1">
+    <label for="tz">Time zone</label>
+    <select id="tz"></select>
+    <p id="tnote" class="note"></p>
+  </section>
+
+  <section>
+    <h2>WiFi</h2>
+    <div class="status"><span id="wdot" class="dot"></span><span id="wstatus"></span></div>
+    <label for="ssid">Network</label>
+    <select id="ssid"><option value="">Scan to see networks</option></select>
+    <input id="ssid_other" type="text" class="hidden" placeholder="Network name" autocomplete="off" style="margin-top:8px">
+    <label for="pass">Password</label>
+    <input id="pass" type="password" autocomplete="off">
+    <div class="actions">
+      <button id="scan">Scan</button>
+      <button id="join" class="primary">Join and restart</button>
+      <button id="forget_wifi" class="danger">Forget WiFi</button>
+    </div>
+    <p class="note">After it restarts, it's at <b>salient.local</b> on that network (or the address on the board's
+      screen). If it can't join, it opens its own setup network again.</p>
+  </section>
+
+  <footer id="foot"></footer>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+let state = null, zonesLoaded = false, editing = new Set();
+
+async function api(path, body) {
+  const opt = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" },
+                                          body: JSON.stringify(body) };
+  const r = await fetch(path, opt);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
+  return r.json();
+}
+
+function el(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const k in attrs || {}) {
+    if (k === "class") e.className = attrs[k]; else if (k.startsWith("on")) e[k] = attrs[k]; else e.setAttribute(k, attrs[k]);
+  }
+  for (const k of kids) e.append(k);
+  return e;
+}
+
+let shownControllers = "";
+function renderControllers(s) {
+  const box = $("controllers");
+  // rebuilt only when something changed, and not while a choice is open in it (a rebuild would close it)
+  const now = JSON.stringify([s.slots, s.controllers.map((c) => [c.id, c.slot, c.connected, c.grip, c.name])]);
+  if (now === shownControllers || box.contains(document.activeElement)) return;
+  shownControllers = now;
+  box.textContent = "";
+  const list = s.controllers.slice().sort((a, b) => (b.connected - a.connected) || (a.slot - b.slot));
+  $("none").classList.toggle("hidden", list.length > 0);
+  for (const c of list) {
+    const slot = el("select", { "aria-label": "Player slot", onchange: (e) => setSlot(c.id, +e.target.value) });
+    for (let i = 1; i <= s.slots; i++) {
+      const o = el("option", { value: i }, "Player " + i);
+      if (i === c.slot) o.selected = true;
+      slot.append(o);
+    }
+    const what = c.label + (c.name && c.kind !== "phone" ? " · " + c.name : "");
+    const info = el("div", { class: "grow" }, el("div", { class: "name" }, what),
+                    el("div", { class: "sub" }, c.connected ? "Connected" : "Away · " + c.id));
+    if (c.grip) {                        // a Wiimote: how it's held
+      const grip = el("select", { class: "grip", "aria-label": "How it's held",
+                                  onchange: (e) => setGrip(c.id, e.target.value) },
+        el("option", { value: "upright" }, "One hand: A picks, B backs"),
+        el("option", { value: "sideways" }, "Two hands, sideways: 2 picks, 1 backs"));
+      grip.value = c.grip;
+      info.append(grip);
+    }
+    box.append(el("div", { class: "row" },
+      el("span", { class: "dot" + (c.connected ? " on" : ""), title: c.connected ? "Connected" : "Away" }),
+      info,
+      slot,
+      el("button", { class: "quiet", onclick: () => forget(c) }, "Forget")));
+  }
+}
+
+function fillSelect(sel, items, value) {
+  if (editing.has(sel.id)) return;
+  const want = JSON.stringify(items);
+  if (sel.dataset.items !== want) {
+    sel.textContent = "";
+    for (const [v, t] of items) sel.append(el("option", { value: v }, t));
+    sel.dataset.items = want;
+  }
+  sel.value = value;
+}
+
+function render(s) {
+  state = s;
+  const t = s.time.local;
+  $("clock").textContent = t ? t.slice(11, 16) : "";
+  renderControllers(s);
+  const pairing = s.pairing > 0;
+  $("pairing").classList.toggle("hidden", !pairing);
+  $("pair").disabled = pairing;
+  $("left").textContent = s.pairing;
+
+  const b = s.scorpio;
+  $("bdot").classList.toggle("on", b.seen);
+  $("bstatus").textContent = b.seen ? "Connected" + (b.game ? ", playing " + b.game : "") + (b.fw ? " (board software " + b.fw + ")" : "")
+                                    : "No board answering yet. Check the wiring (radio TX to SCORPIO RX, RX to TX, ground).";
+  const games = [["", "The board's own choice (config.py)"]].concat(b.games.map((g) => [g, g]));
+  if (s.settings.game && !b.games.includes(s.settings.game)) games.push([s.settings.game, s.settings.game]);
+  fillSelect($("game"), games, s.settings.game);
+  if (!editing.has("bright")) $("bright").value = s.settings.brightness;
+  $("bval").textContent = s.settings.brightness ? s.settings.brightness + " of 10" : "Board default";
+  if (s.zones) fillSelect($("tz"), s.zones.map((z) => [z.id, z.label]), s.settings.tz);
+  else if (!editing.has("tz")) $("tz").value = s.settings.tz;
+  $("tnote").textContent = s.time.source === "none" ? "The time is set from the internet once WiFi is connected."
+    : s.time.source === "fake" ? "The clock was set by hand (console); NTP is off." : "Time from the internet" + (s.time.dst ? ", daylight saving time." : ".");
+
+  const w = s.wifi;
+  $("wdot").classList.toggle("on", w.connected);
+  $("wstatus").textContent = w.connected ? "On " + w.ssid + ": " + w.host + " (" + w.ip + ")"
+    : w.ssid ? "Trying to join " + w.ssid + (w.setup ? "; setup network " + w.setup_name + " is open" : "")
+    : "Not on a network yet; setup network " + w.setup_name + " is open";
+  $("foot").textContent = "Radio " + s.fw + " on " + s.board;
+}
+
+async function refresh(zones) {
+  try { render(await api("/api/state" + (zones ? "?zones=1" : ""))); zonesLoaded = zonesLoaded || zones; }
+  catch (e) { $("bstatus").textContent = "Can't reach the radio"; }
+}
+
+async function setSetting(obj) { try { await api("/api/settings", obj); } catch (e) { alert(e.message); } refresh(false); }
+async function setSlot(id, slot) { await api("/api/controller", { id, slot }).catch((e) => alert(e.message)); refresh(false); }
+async function setGrip(id, grip) { await api("/api/controller", { id, grip }).catch((e) => alert(e.message)); refresh(false); }
+async function forget(c) {
+  if (!confirm("Forget " + c.label + "? It will have to pair again.")) return;
+  await api("/api/controller", { id: c.id, forget: true }).catch((e) => alert(e.message));
+  setTimeout(() => refresh(false), 300);
+}
+
+for (const id of ["game", "tz", "bright", "ssid"]) {
+  $(id).addEventListener("focus", () => editing.add(id));
+  $(id).addEventListener("blur", () => editing.delete(id));
+}
+$("game").onchange = (e) => setSetting({ game: e.target.value });
+$("tz").onchange = (e) => setSetting({ tz: e.target.value });
+$("bright").oninput = (e) => { $("bval").textContent = +e.target.value ? e.target.value + " of 10" : "Board default"; };
+$("bright").onchange = (e) => setSetting({ brightness: +e.target.value });
+$("pair").onclick = () => api("/api/pair", { on: true }).then(() => refresh(false));
+$("stop").onclick = () => api("/api/pair", { on: false }).then(() => refresh(false));
+
+$("scan").onclick = async () => {
+  $("scan").disabled = true;
+  $("scan").textContent = "Scanning…";
+  try {
+    const nets = await api("/api/scan");
+    const sel = $("ssid");
+    sel.textContent = "";
+    for (const n of nets) sel.append(el("option", { value: n.ssid }, n.ssid + (n.open ? " (open)" : "")));
+    sel.append(el("option", { value: "\__other__" }, "Other…"));
+    if (state && state.wifi.ssid && nets.some((n) => n.ssid === state.wifi.ssid)) sel.value = state.wifi.ssid;
+    sel.onchange();
+  } catch (e) { alert("Scan failed: " + e.message); }
+  $("scan").disabled = false;
+  $("scan").textContent = "Scan";
+};
+$("ssid").onchange = () => $("ssid_other").classList.toggle("hidden", $("ssid").value !== "\__other__");
+$("join").onclick = async () => {
+  const ssid = $("ssid").value === "\__other__" ? $("ssid_other").value.trim() : $("ssid").value;
+  if (!ssid) { alert("Pick a network (Scan), or choose Other and type its name."); return; }
+  try {
+    await api("/api/wifi", { ssid, pass: $("pass").value });
+    $("wstatus").textContent = "Restarting to join " + ssid + "… then open http://salient.local/";
+  } catch (e) { alert(e.message); }
+};
+$("forget_wifi").onclick = async () => {
+  if (!confirm("Forget the WiFi network? The board restarts into its own setup network.")) return;
+  await api("/api/wifi_forget", {}).catch(() => {});
+  $("wstatus").textContent = "Restarting into setup…";
+};
+
+refresh(true);
+setInterval(() => refresh(!zonesLoaded), 2000);
+</script>
+</body>
+</html>

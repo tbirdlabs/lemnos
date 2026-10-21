@@ -84,24 +84,35 @@ def layout(board, island_at=None, bars_at=None, start=None):
     return island, nlines, strand, phys
 
 
+def step_brightness(n):
+    """Brightness for step n of 1-10 (the USB page's and the radio's slider): a log scale, since eyes see LEDs
+    that way. 10 = full, 5 = 10%, each step x1.58: 1.6, 2.5, 4, 6.3, 10, 16, 25, 40, 63, 100%."""
+    return 10 ** ((n - 10) / 5)
+
+
 ISLAND_LEDS, LINES, STRAND, PHYS = layout(config.BOARD)
 ISLAND = SPOTS * PER_SPOT                # first logical bar LED
 FIRST_LINE = ISLAND + SEATS * BAR
 COUNT = FIRST_LINE + LINES               # 171 or 215 logical LEDs
 _DARK = bytes(COUNT * 3)
+_START_BRIGHTNESS = config.BRIGHTNESS
 
 
 class Lights:
     def __init__(self, pixels=None):
         """pixels: a pixel object to draw on (drivers.py); by default the one config.LED_DRIVER names."""
         self.raw = bytearray(COUNT * 3)          # what the game drew this frame
-        self.sent = bytearray(COUNT * 3)         # what the LEDs show
+        self.sent = bytearray(COUNT * 3)         # what the LEDs show (before dimming)
         self.phys = PHYS
-        self.scale = 1.0
+        self.scale = 1.0                         # the power cap's share of the dimming, last frame
+        self.level = -1                          # the dimming applied, in 1024ths (brightness x power cap)
+        self.brightness = config.BRIGHTNESS      # overall, before the power cap (set_brightness)
         self.now = 0.0                           # the board's clock, for effects; the host sets it every frame
         self.has_lines = LINES > 0
         if pixels is None:
-            pixels = drivers.start(config.LED_DRIVER, config.LED_PIN, STRAND, config.PIXEL_ORDER, config.BRIGHTNESS)
+            # The driver always runs at full brightness: show() dims, which saves a whole second copy of the
+            # pixels that the LED libraries keep when their own brightness isn't 1.
+            pixels = drivers.start(config.LED_DRIVER, config.LED_PIN, STRAND, config.PIXEL_ORDER, 1.0)
         self.pixels = pixels
         if pixels is not None:
             need = max(PHYS) + 1
@@ -159,9 +170,16 @@ class Lights:
         for k in range(COUNT):
             self._set(k, c)
 
+    def set_brightness(self, b):
+        """Overall brightness from now on, 0..1 (the radio's setting), or None for config.BRIGHTNESS again. The power
+        cap still applies on top."""
+        self.brightness = _START_BRIGHTNESS if b is None else max(0.0, min(1.0, b))
+        config.BRIGHTNESS = self.brightness      # for code that reads it later
+        self.level = -1                          # the next show() sends every LED again
+
     def milliamps(self):
         """Estimated LED current for the frame as drawn, at full scale."""
-        return COUNT * config.MA_IDLE + sum(self.raw) * config.BRIGHTNESS * config.MA_PER_CHANNEL / 255
+        return COUNT * config.MA_IDLE + sum(self.raw) * self.brightness * config.MA_PER_CHANNEL / 255
 
     def show(self):
         limit = config.POWER_LIMIT_A
@@ -172,23 +190,22 @@ class Lights:
             if ma > budget:
                 idle = COUNT * config.MA_IDLE
                 scale = max(0.0, (budget - idle) / (ma - idle))
+        self.scale = scale
         if self.pixels is None:
-            self.scale = scale
             self.sent[:] = self.raw
             return
-        changed = False
-        if scale != self.scale:
-            self.scale = scale
-            self.pixels.brightness = config.BRIGHTNESS * scale
-            changed = True
+        level = int(self.brightness * scale * 1024)
         raw = self.raw
         sent = self.sent
         px = self.pixels
         phys = self.phys
+        every = level != self.level              # brightness or the power cap changed: every LED again
+        self.level = level
+        changed = every
         for k in range(COUNT):
             j = k * 3
-            if raw[j] != sent[j] or raw[j + 1] != sent[j + 1] or raw[j + 2] != sent[j + 2]:
-                px[phys[k]] = (raw[j], raw[j + 1], raw[j + 2])
+            if every or raw[j] != sent[j] or raw[j + 1] != sent[j + 1] or raw[j + 2] != sent[j + 2]:
+                px[phys[k]] = (raw[j] * level >> 10, raw[j + 1] * level >> 10, raw[j + 2] * level >> 10)
                 changed = True
         if changed:
             sent[:] = raw

@@ -16,8 +16,24 @@ from . import plugins
 
 
 def neopxl8(pin, strand, order, brightness):
-    from adafruit_neopxl8 import NeoPxl8
-    return NeoPxl8(pin, strand * 8, num_strands=8, auto_write=False, brightness=brightness, pixel_order=order)
+    import adafruit_neopxl8
+    px = adafruit_neopxl8.NeoPxl8(pin, strand * 8, num_strands=8, auto_write=False, brightness=brightness,
+                                  pixel_order=order)
+    forget_module("adafruit_pioasm", adafruit_neopxl8)   # it only builds the PIO program, once: 10 KB of RAM back
+    return px
+
+
+def forget_module(name, *holders):
+    """Unload a library that's done its job, so its RAM comes back: from sys.modules and from the modules holding
+    it. Loading it again later reads it afresh."""
+    import sys
+    sys.modules.pop(name, None)
+    for m in holders:
+        if hasattr(m, name):
+            try:
+                delattr(m, name)
+            except (AttributeError, TypeError):
+                pass
 
 
 def neopixel(pin, strand, order, brightness):

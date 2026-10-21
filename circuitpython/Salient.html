@@ -1,0 +1,895 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Salient board</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2l12 7v14l-12 7-12-7V9z' fill='%23c2410c'/%3E%3C/svg%3E">
+<!--
+  The board's USB page: open this file (it's on the CIRCUITPY drive) in Edge, Chrome or Firefox with the board plugged in,
+  press Connect and pick the board's port. Nothing to install. It talks to the board over the USB serial console
+  (Web Serial); the board's side is gamehost/usbpage.py, and the lines are listed there.
+-->
+<style>
+:root {
+  --bg: #f4f2ee; --card: #ffffff; --ink: #1d1f22; --muted: #6a6d73; --line: #e2dfd8;
+  --accent: #c2410c; --accent-ink: #ffffff; --ok: #15803d; --warn: #b45309; --bad: #b91c1c; --field: #faf9f7;
+  --stage: #0d0e10; --stage-ink: #c9cbd0;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #131416; --card: #1d1f23; --ink: #ecebe8; --muted: #9a9ca2; --line: #30333a;
+    --accent: #fb923c; --accent-ink: #1b1206; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171; --field: #25282d;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #131416; --card: #1d1f23; --ink: #ecebe8; --muted: #9a9ca2; --line: #30333a;
+  --accent: #fb923c; --accent-ink: #1b1206; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171; --field: #25282d;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+       font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 1120px; margin: 0 auto; padding: 16px 16px 48px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 4px 0 16px; }
+h1 { font-size: 24px; margin: 0; letter-spacing: .01em; }
+h1 span { color: var(--accent); }
+.conn { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 0 0 14px; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 12px; }
+.row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.row:first-child { border-top: 0; padding-top: 0; }
+.grow { flex: 1; min-width: 0; }
+.name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sub { color: var(--muted); font-size: 14px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); flex: none; }
+.dot.on { background: var(--ok); }
+.dot.warn { background: var(--warn); }
+.dot.bad { background: var(--bad); }
+label { display: block; font-size: 14px; color: var(--muted); margin: 14px 0 4px; }
+label:first-of-type { margin-top: 0; }
+select, input[type=text] {
+  width: 100%; font: inherit; color: var(--ink); background: var(--field); border: 1px solid var(--line);
+  border-radius: 8px; padding: 10px 12px; min-height: 44px; }
+input[type=range] { width: 100%; accent-color: var(--accent); min-height: 32px; }
+button { font: inherit; font-weight: 600; border-radius: 8px; border: 1px solid var(--line); background: var(--field);
+         color: var(--ink); padding: 10px 14px; min-height: 44px; cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.quiet { background: none; border-color: transparent; color: var(--muted); padding: 8px 10px; }
+button:disabled { opacity: .5; cursor: default; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.note { color: var(--muted); font-size: 14px; margin: 8px 0 0; }
+.note b, .note kbd { color: var(--ink); }
+kbd { font: 600 13px/1 ui-monospace, Consolas, monospace; border: 1px solid var(--line); border-bottom-width: 2px;
+      border-radius: 4px; padding: 2px 5px; background: var(--field); }
+.val { float: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+.hidden { display: none !important; }
+.status { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+.callout { border-radius: 10px; padding: 12px 14px; margin: 0 0 14px; background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.callout.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); }
+.callout p { margin: 0; }
+.callout .actions { margin-top: 10px; }
+
+/* the board */
+.stage { position: relative; background: var(--stage); border-radius: 12px; padding: 8px; outline: none; }
+.stage:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 60%, transparent); }
+#view { display: block; width: 100%; aspect-ratio: 1 / 1; }
+.stage .over { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px;
+               text-align: center; color: var(--stage-ink); pointer-events: none; }
+.stage .over p { max-width: 340px; margin: 0; font-size: 15px; background: rgba(13, 14, 16, .78); padding: 12px 14px; border-radius: 10px; }
+.boardnote { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+
+/* the pad */
+.padwrap { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.pad { display: grid; grid-template-columns: repeat(3, 60px); grid-template-rows: repeat(3, 60px); gap: 6px; flex: none; }
+.pad button, .side button { padding: 0; min-height: 0; touch-action: none; user-select: none; -webkit-user-select: none; }
+.pad button { font-size: 20px; }
+.pad .pick { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-size: 15px; }
+.pad button.down, .side button.down { filter: brightness(.85); transform: translateY(1px); }
+.side { display: grid; grid-template-columns: repeat(2, 92px); grid-auto-rows: 52px; gap: 6px; }
+.side .back { grid-column: span 2; }
+.who { min-width: 150px; flex: 1; }
+
+/* console */
+details summary { cursor: pointer; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+                  list-style-position: inside; }
+details[open] summary { margin-bottom: 12px; }
+#log { margin: 0; height: 260px; overflow: auto; background: var(--field); border: 1px solid var(--line); border-radius: 8px;
+       padding: 10px 12px; font: 13px/1.4 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
+.cmd { display: flex; gap: 8px; margin-top: 8px; }
+.cmd input { flex: 1; font-family: ui-monospace, Consolas, monospace; font-size: 14px; }
+footer { color: var(--muted); font-size: 13px; text-align: center; margin-top: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1><span>Salient</span> board</h1>
+    <div class="conn">
+      <div class="status"><span id="cdot" class="dot"></span><span id="cstatus">Not connected</span></div>
+      <button id="connect" class="primary">Connect</button>
+      <button id="disconnect" class="hidden">Disconnect</button>
+    </div>
+  </header>
+
+  <div id="unsupported" class="callout bad hidden">
+    <p><b>This browser can't talk to the board.</b> Open this page in <b>Edge</b>, <b>Chrome</b> or
+      <b>Firefox</b> on a computer (they have Web Serial; Safari doesn't). On Windows, Edge is already installed:
+      right-click the file, Open with, Microsoft Edge.</p>
+  </div>
+  <div id="stopped" class="callout bad hidden">
+    <p><b>The board's program has stopped.</b> The console below says why.</p>
+    <div class="actions">
+      <button id="restart2" class="primary">Restart the board</button>
+      <button id="clean">Restart without saved settings</button>
+    </div>
+  </div>
+  <div id="silent" class="callout hidden">
+    <p><b>Connected, but the board's program isn't answering.</b> It may be busy starting, or running something other
+      than the board software. Restarting it usually helps.</p>
+    <div class="actions"><button id="restart3">Restart the board</button></div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <section>
+        <div class="stage" id="stage" tabindex="0" aria-label="The board. With this focused, arrow keys, Enter, Esc and Space control your player.">
+          <canvas id="view"></canvas>
+          <div class="over" id="over"><p id="overtext">Plug the board in with a USB cable, then press <b>Connect</b>
+            and pick its port.</p></div>
+        </div>
+        <div class="boardnote">
+          <p class="note" id="boardinfo">The board's lights show here once it's connected.</p>
+          <p class="note"><label style="display:inline;margin:0"><input type="checkbox" id="watch" checked> Show the lights</label></p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Play from this computer</h2>
+        <div class="padwrap">
+          <div class="pad" aria-label="Controller">
+            <span></span><button data-a="up" aria-label="Up">▲</button><span></span>
+            <button data-a="left" aria-label="Left">◀</button><button data-a="pick" class="pick">Pick</button><button data-a="right" aria-label="Right">▶</button>
+            <span></span><button data-a="down" aria-label="Down">▼</button><span></span>
+          </div>
+          <div class="side">
+            <button data-a="move_back">◂ Move</button><button data-a="move">Move ▸</button>
+            <button data-a="back" class="back">Back</button>
+          </div>
+          <div class="who">
+            <label for="player">Player</label>
+            <select id="player"></select>
+          </div>
+        </div>
+        <p class="note">Keys (click the board first): <kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd> move,
+          <kbd>Enter</kbd> pick, <kbd>Esc</kbd> back, <kbd>Space</kbd> / <kbd>Shift</kbd>+<kbd>Space</kbd> move
+          forward / back (scanning), <kbd>1</kbd>–<kbd>6</kbd> which player. Each player joins the game the first
+          time they press something, like any controller.</p>
+      </section>
+    </div>
+
+    <div>
+      <section>
+        <h2>Board</h2>
+        <label for="game">Game</label>
+        <select id="game" disabled><option>Not connected</option></select>
+        <p class="note" id="gamenote">Plays now, and at every power-up after.</p>
+        <label for="bright">Brightness <span id="bval" class="val"></span></label>
+        <input id="bright" type="range" min="1" max="10" step="1" value="10" disabled>
+        <div class="actions"><button id="defaults" disabled>Back to config.py's game and brightness</button></div>
+        <label>Clock</label>
+        <p class="note" id="clocknote" style="margin-top:0">Set from this computer's clock when the board connects.</p>
+        <div class="actions"><button id="settime" disabled>Set the board's clock now</button></div>
+      </section>
+
+      <section>
+        <h2>New game</h2>
+        <div id="fields"><p class="note" style="margin:0">Not connected.</p></div>
+        <p class="note hidden" id="setupmsg" role="status"></p>
+        <div class="actions">
+          <button id="start" class="primary hidden" disabled>Start</button>
+          <button id="newgame" disabled>New game at the board</button>
+        </div>
+        <p class="note" id="setupnote">Start ends any game in progress. <b>New game at the board</b> goes back to the
+          game's own setup on the board, to set up with the controllers.</p>
+      </section>
+
+      <section>
+        <h2>Players</h2>
+        <div id="players"><p class="note" style="margin:0">Not connected.</p></div>
+      </section>
+
+      <section>
+        <details id="console">
+          <summary>Console</summary>
+          <pre id="log"></pre>
+          <div class="cmd">
+            <input id="cmd" type="text" placeholder="A command, like: time 14:32  or  radio pair" autocomplete="off" spellcheck="false">
+            <button id="send" disabled>Send</button>
+          </div>
+          <div class="actions">
+            <button id="restart" disabled>Restart the board</button>
+            <button id="clear" class="quiet">Clear</button>
+          </div>
+          <p class="note">What the board prints. Commands go to the game, the same as typing them in a serial
+            terminal. Only one program can use the board's port at a time, so close Mu, Thonny or any other serial
+            monitor before connecting here.</p>
+        </details>
+      </section>
+    </div>
+  </div>
+  <footer id="foot">Salient board · USB page</footer>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const VENDORS = [0x239A, 0x2E8A];          // Adafruit (CircuitPython boards), Raspberry Pi
+
+// ---------------------------------------------------------------------------------------------------------------
+// The board's shape (gamehost/geometry.py): 37 hexes in rows A-G of 4,5,6,7,6,5,4, axial (q, r) with D4 at (0, 0);
+// 3 LEDs a hex, left to right as seen from seat 1; six 10-LED bars, seat 1 at the bottom, then clockwise; on the
+// small board, an LED under each vertical line in a row. The LEDS line is in that order: hexes, bars, lines.
+const ROW_LENGTHS = [4, 5, 6, 7, 6, 5, 4];
+const SQ3 = Math.sqrt(3);
+const SPOTS = [];                          // [{q, r, x, y}] in geometry's numbering (row A first, left to right)
+const ROWS = [];
+for (let r = -3; r <= 3; r++) {
+  const row = [];
+  for (let q = Math.max(-3, -3 - r); q <= Math.min(3, 3 - r); q++) {
+    row.push(SPOTS.length);
+    SPOTS.push({ q, r, x: SQ3 * (q + r / 2), y: 1.5 * r });
+  }
+  ROWS.push(row);
+}
+const CORNERS = [[0, -3], [3, -3], [3, 0], [0, 3], [-3, 3], [-3, 0]];
+const px = ([q, r]) => [SQ3 * (q + r / 2), 1.5 * r];
+
+function layoutLeds(small) {
+  // [{x, y, rad}] for every LED in the LEDS order
+  const out = [];
+  for (const s of SPOTS) for (let i = 0; i < 3; i++) out.push({ x: s.x + (i - 1) * 0.5, y: s.y, rad: 0.19 });
+  for (let seat = 1; seat <= 6; seat++) {
+    const a = px(CORNERS[(seat + 3) % 6]), b = px(CORNERS[(seat + 2) % 6]);   // the player's left corner first
+    const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, m = Math.hypot(mx, my);
+    const off = 1.85;
+    for (let i = 0; i < 10; i++) {
+      const t = -0.08 + 1.16 * (i + 0.5) / 10;
+      out.push({ x: a[0] + (b[0] - a[0]) * t + mx / m * off, y: a[1] + (b[1] - a[1]) * t + my / m * off, rad: 0.17 });
+    }
+  }
+  if (small) {
+    for (const row of ROWS) {
+      const first = SPOTS[row[0]];
+      for (let c = 0; c <= row.length; c++) out.push({ x: first.x - SQ3 / 2 + c * SQ3, y: first.y, rad: 0.12 });
+    }
+  }
+  return out;
+}
+
+function seatLabels() {
+  const out = [];
+  for (let seat = 1; seat <= 6; seat++) {
+    const a = px(CORNERS[(seat + 3) % 6]), b = px(CORNERS[(seat + 2) % 6]);
+    const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, m = Math.hypot(mx, my);
+    out.push({ seat, x: mx / m * (m + 2.55), y: my / m * (m + 2.55) });
+  }
+  return out;
+}
+
+// LED values are light; a screen's are sRGB, so dim LEDs would look black without this.
+const SRGB = new Array(256);
+for (let v = 0; v < 256; v++) {
+  const l = v / 255;
+  SRGB[v] = Math.round(255 * (l <= 0.0031308 ? 12.92 * l : 1.055 * Math.pow(l, 1 / 2.4) - 0.055));
+}
+
+const view = {
+  canvas: $("view"), leds: layoutLeds(false), small: false, frame: null, bg: null, scale: 1, ox: 0, oy: 0, pending: false,
+
+  setBoard(kind) {
+    this.small = kind === "small";
+    this.leds = layoutLeds(this.small);
+    this.bg = null;
+    this.draw();
+  },
+
+  fit() {
+    const c = this.canvas, dpr = window.devicePixelRatio || 1;
+    const w = c.clientWidth, h = c.clientHeight;
+    if (!w || !h) return false;
+    if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) {
+      c.width = Math.round(w * dpr);
+      c.height = Math.round(h * dpr);
+      this.bg = null;
+    }
+    const span = 2 * 7.6;                     // the bars and seat numbers reach about 7.6 hex sizes from the middle
+    this.scale = Math.min(c.width, c.height) / span;
+    this.ox = c.width / 2;
+    this.oy = c.height / 2;
+    return true;
+  },
+
+  background() {
+    const c = document.createElement("canvas");
+    c.width = this.canvas.width;
+    c.height = this.canvas.height;
+    const g = c.getContext("2d"), k = this.scale;
+    g.translate(this.ox, this.oy);
+    g.lineWidth = Math.max(1, k * 0.05);
+    for (const s of SPOTS) {
+      g.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = Math.PI / 180 * (60 * i - 90);
+        g.lineTo((s.x + 0.96 * Math.cos(a)) * k, (s.y + 0.96 * Math.sin(a)) * k);
+      }
+      g.closePath();
+      g.fillStyle = "#17191d";
+      g.fill();
+      g.strokeStyle = "#2b2f36";
+      g.stroke();
+    }
+    g.fillStyle = "#6a6e76";
+    g.font = `600 ${Math.round(k * 0.55)}px system-ui, sans-serif`;
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    for (const l of seatLabels()) g.fillText(String(l.seat), l.x * k, l.y * k);
+    this.bg = c;
+  },
+
+  show(bytes) {
+    this.frame = bytes;
+    if (!this.pending) {
+      this.pending = true;
+      requestAnimationFrame(() => { this.pending = false; this.draw(); });
+    }
+  },
+
+  draw() {
+    if (!this.fit()) return;
+    if (!this.bg) this.background();
+    const g = this.canvas.getContext("2d"), k = this.scale, f = this.frame;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    g.drawImage(this.bg, 0, 0);
+    g.translate(this.ox, this.oy);
+    const lit = [];
+    for (let i = 0; i < this.leds.length; i++) {
+      const L = this.leds[i];
+      const r = f ? f[3 * i] : 0, gr = f ? f[3 * i + 1] : 0, b = f ? f[3 * i + 2] : 0;
+      if (r | gr | b) lit.push([L, SRGB[r], SRGB[gr], SRGB[b], Math.max(r, gr, b)]);
+      else {
+        g.beginPath();
+        g.arc(L.x * k, L.y * k, L.rad * k * 0.8, 0, 2 * Math.PI);
+        g.fillStyle = "#24272d";
+        g.fill();
+      }
+    }
+    g.globalCompositeOperation = "lighter";
+    for (const [L, r, gr, b, peak] of lit) {
+      const x = L.x * k, y = L.y * k, glow = L.rad * k * 3.2;
+      const grad = g.createRadialGradient(x, y, 0, x, y, glow);
+      const a = 0.25 + 0.45 * peak / 255;
+      grad.addColorStop(0, `rgba(${r},${gr},${b},${a})`);
+      grad.addColorStop(1, `rgba(${r},${gr},${b},0)`);
+      g.fillStyle = grad;
+      g.fillRect(x - glow, y - glow, 2 * glow, 2 * glow);
+    }
+    g.globalCompositeOperation = "source-over";
+    for (const [L, r, gr, b] of lit) {
+      g.beginPath();
+      g.arc(L.x * k, L.y * k, L.rad * k, 0, 2 * Math.PI);
+      g.fillStyle = `rgb(${r},${gr},${b})`;
+      g.fill();
+    }
+  },
+};
+new ResizeObserver(() => { view.bg = null; view.draw(); }).observe(view.canvas);
+
+// ---------------------------------------------------------------------------------------------------------------
+// The serial port
+const link = {
+  port: null, reader: null, writer: null, text: "", ready: false, state: "off",   // off, unknown, running, stopped
+  tries: 0, helloTimer: null, restarting: false, enc: new TextEncoder(),
+
+  async write(s) {
+    if (!this.writer) return;
+    try { await this.writer.write(this.enc.encode(s)); } catch (e) { /* the port went away; read() notices */ }
+  },
+  send(line) { return this.write("!" + line + "\n"); },
+};
+
+function status(text, kind) {
+  $("cstatus").textContent = text;
+  $("cdot").className = "dot" + (kind ? " " + kind : "");
+}
+
+function connectedUI(on) {
+  $("connect").classList.toggle("hidden", on);
+  $("disconnect").classList.toggle("hidden", !on);
+  for (const id of ["send", "restart"]) $(id).disabled = !on;
+  if (!on) readyUI(false);
+}
+
+function readyUI(on) {
+  for (const id of ["game", "bright", "defaults", "settime"]) $(id).disabled = !on;
+  $("silent").classList.add("hidden");
+  if (!on) {
+    form.fields = [];
+    setupMsg("");
+  }
+  renderForm();
+  if (!on) {
+    $("game").innerHTML = "<option>" + (link.port ? "Waiting for the board" : "Not connected") + "</option>";
+    $("players").innerHTML = '<p class="note" style="margin:0">' + (link.port ? "Waiting for the board." : "Not connected.") + "</p>";
+  }
+}
+
+function overlay(text) {
+  $("over").classList.toggle("hidden", !text);
+  if (text) $("overtext").innerHTML = text;
+}
+
+async function connect(port) {
+  if (link.port) return;
+  try {
+    await port.open({ baudRate: 115200, bufferSize: 65536 });
+  } catch (e) {
+    status("Couldn't open the port", "bad");
+    overlay("Couldn't open the board's port. If Mu, Thonny, a VS Code serial monitor or another tab has it open, " +
+            "close that and press <b>Connect</b> again.<br><br><small>" + esc(e.message) + "</small>");
+    return;
+  }
+  try { await port.setSignals({ dataTerminalReady: true, requestToSend: true }); } catch (e) { }
+  link.port = port;
+  link.writer = port.writable.getWriter();
+  link.text = "";
+  link.ready = false;
+  link.state = "unknown";
+  link.tries = 0;
+  connectedUI(true);
+  status("Connected, waiting for the board", "warn");
+  overlay("Connected. Waiting for the board's program…");
+  readLoop(port);
+  await link.write("\r\n");
+  hello();
+}
+
+function hello() {
+  clearTimeout(link.helloTimer);
+  if (!link.port || link.ready || link.state === "stopped") return;
+  link.send("HELLO page 1");
+  link.tries++;
+  if (link.tries === 9) {                      // about 12 s: Salient alone takes a few seconds to load
+    $("silent").classList.remove("hidden");
+    status("Connected, no answer", "warn");
+  }
+  link.helloTimer = setTimeout(hello, 1500);
+}
+
+async function readLoop(port) {
+  const dec = new TextDecoder();
+  while (link.port === port && port.readable) {
+    let reader;
+    try {
+      reader = port.readable.getReader();
+      link.reader = reader;
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        received(dec.decode(value, { stream: true }));
+      }
+    } catch (e) {
+      break;                                  // unplugged, or a read error
+    } finally {
+      try { reader && reader.releaseLock(); } catch (e) { }
+    }
+  }
+  if (link.port === port) lost("The board was unplugged (or restarted). It reconnects by itself when it's back.");
+}
+
+async function disconnect(note) {
+  const port = link.port;
+  if (!port) return;
+  await link.send("BYE");
+  link.port = null;
+  try { await link.reader.cancel(); } catch (e) { }
+  try { link.writer.releaseLock(); } catch (e) { }
+  try { await port.close(); } catch (e) { }
+  cleared(note || "Disconnected. Press <b>Connect</b> to connect again.");
+}
+
+function lost(note) {
+  const port = link.port;
+  link.port = null;
+  try { link.writer.releaseLock(); } catch (e) { }
+  port.close().catch(() => { });
+  cleared(note);
+}
+
+function cleared(note) {
+  clearTimeout(link.helloTimer);
+  link.writer = null;
+  link.reader = null;
+  link.ready = false;
+  link.state = "off";
+  connectedUI(false);
+  $("stopped").classList.add("hidden");
+  status("Not connected");
+  view.show(null);
+  overlay(note);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// What the board sends: "@" lines for this page, everything else is the console
+function received(chunk) {
+  link.text += chunk;
+  let k;
+  while ((k = link.text.indexOf("\n")) >= 0) {
+    const line = link.text.slice(0, k).replace(/\r+$/, "");
+    link.text = link.text.slice(k + 1);
+    if (line.startsWith("@")) message(line.slice(1));
+    else consoleLine(line);
+  }
+  if (link.text.endsWith(">>> ")) {             // the REPL prompt has no newline
+    consoleText(link.text);
+    link.text = "";
+    stopped();
+  } else if (link.text.length > 4096) {
+    consoleText(link.text);
+    link.text = "";
+  }
+}
+
+function consoleLine(line) {
+  consoleText(line + "\n");
+  if (/^soft reboot|code\.py output:/.test(line)) starting();
+  else if (/Press any key to enter the REPL|Code done running/.test(line)) stopped();
+}
+
+function starting() {
+  link.restarting = false;
+  link.ready = false;
+  link.state = "unknown";
+  link.tries = 0;
+  readyUI(false);
+  $("stopped").classList.add("hidden");
+  status("Board restarting", "warn");
+  clearTimeout(link.helloTimer);
+  link.helloTimer = setTimeout(hello, 800);
+}
+
+function stopped() {
+  if (link.state === "stopped" || link.restarting) return;
+  link.state = "stopped";
+  link.ready = false;
+  clearTimeout(link.helloTimer);
+  readyUI(false);
+  status("Program stopped", "bad");
+  $("stopped").classList.remove("hidden");
+  $("console").open = true;
+  overlay("The board's program has stopped.");
+}
+
+const board = { version: "", kind: "large", count: 171, games: [], game: "", deflt: "", brightness: "default", deflBright: 1 };
+
+function message(line) {
+  const sp = line.indexOf(" ");
+  const cmd = sp < 0 ? line : line.slice(0, sp), rest = sp < 0 ? "" : line.slice(sp + 1);
+  if (cmd === "HELLO") {
+    board.version = rest;
+    link.ready = true;
+    link.state = "running";
+    clearTimeout(link.helloTimer);
+    $("stopped").classList.add("hidden");
+    $("silent").classList.add("hidden");
+    readyUI(true);
+    status("Connected", "on");
+    overlay("");
+    setWatch();
+    setTime();
+  } else if (cmd === "BOARD") {
+    const [kind, count] = rest.split(" ");
+    board.kind = kind;
+    board.count = +count;
+    view.setBoard(kind);
+    footer();
+  } else if (cmd === "GAMES") {
+    board.games = rest.split(" ").filter(Boolean);
+    gameList();
+  } else if (cmd === "STATE") {
+    const sp2 = rest.indexOf(" ");
+    const key = rest.slice(0, sp2), val = rest.slice(sp2 + 1);
+    if (key === "game") { if (val !== board.game) form.touched.clear(); board.game = val; gameList(); }
+    else if (key === "default_game") { board.deflt = val; gameList(); }
+    else if (key === "default_brightness") { board.deflBright = +val; brightUI(); }
+    else if (key === "brightness") { board.brightness = val; brightUI(); }
+  } else if (cmd === "PLAYERS") {
+    try { players(JSON.parse(rest)); } catch (e) { }
+  } else if (cmd === "OPTIONS") {
+    try { form.fields = JSON.parse(rest); } catch (e) { form.fields = []; }
+    renderForm();
+  } else if (cmd === "SETUP") {
+    setupMsg(rest === "ok" ? "Started." : rest, rest !== "ok");
+  } else if (cmd === "LEDS") {
+    if (!$("watch").checked) return;
+    const bin = atob(rest);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    view.show(bytes);
+  }
+}
+
+function footer() {
+  $("foot").textContent = "Board software " + board.version + " · " + board.kind + " board (" + board.count + " LEDs)";
+  $("boardinfo").textContent = "As the game draws it, before brightness. Seat 1 is at the bottom.";
+}
+
+function gameList() {
+  const sel = $("game");
+  if (document.activeElement === sel) return;
+  sel.textContent = "";
+  const names = board.games.slice();
+  if (board.game && !names.includes(board.game)) names.push(board.game);
+  for (const g of names) {
+    const o = document.createElement("option");
+    o.value = g;
+    o.textContent = g + (g === board.deflt ? "  (config.py's)" : "");
+    sel.append(o);
+  }
+  sel.value = board.game;
+  $("gamenote").textContent = "Plays now, and at every power-up after." +
+    (board.deflt ? " config.py's game is " + board.deflt + "." : "");
+}
+
+// The board's 1-10 is a log scale (gamehost/lights.py, step_brightness): 10 = full, 5 = 10%, each step x1.58.
+const stepPercent = (n) => 100 * Math.pow(10, (n - 10) / 5);
+const pct = (p) => (p < 10 ? p.toFixed(1).replace(/\.0$/, "") : Math.round(p)) + "%";
+const brightLabel = (n) => n + " of 10 (" + pct(stepPercent(n)) + ")";
+
+function brightUI() {
+  const d = board.brightness === "default", c = board.deflBright;
+  const near = Math.min(10, Math.max(1, Math.round(10 + 5 * Math.log10(Math.max(c, 0.001)))));
+  if (document.activeElement !== $("bright")) $("bright").value = d ? near : board.brightness;
+  $("bval").textContent = d ? "config.py's (" + pct(c * 100) + ")" : brightLabel(+board.brightness);
+}
+
+function players(list) {
+  const box = $("players");
+  box.textContent = "";
+  if (!list.length) {
+    box.innerHTML = '<p class="note" style="margin:0">No controllers yet. Press something on one, or on the pad here.</p>';
+    return;
+  }
+  for (const p of list) {
+    const row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML = '<span class="dot on"></span><div class="grow"><div class="name"></div><div class="sub"></div></div>';
+    row.querySelector(".name").textContent = p.name;
+    row.querySelector(".sub").textContent = p.seat ? "Seat " + p.seat : "Picks a side in the game";
+    box.append(row);
+  }
+}
+
+// Only while it can be seen: a hidden tab gets no lights, so a background tab that stops reading can't back the
+// board's output up.
+// The game's setup form (Game.options() on the board). What's been changed here is kept when the board sends the
+// form again (a controller came or went), as long as it's still a choice.
+const form = { fields: [], picked: {}, touched: new Set() };
+
+function shown(f) {
+  return !f.show || Object.keys(f.show).every((k) => f.show[k].includes(form.picked[k]));
+}
+
+function renderForm() {
+  const box = $("fields");
+  box.textContent = "";
+  const has = form.fields.length > 0;
+  $("start").classList.toggle("hidden", !has);
+  $("start").disabled = !link.ready || !has;
+  $("newgame").disabled = !link.ready;
+  $("newgame").textContent = has ? "New game at the board" : "New game";
+  $("setupnote").classList.toggle("hidden", !has);
+  if (!has) {
+    box.innerHTML = '<p class="note" style="margin:0">' + (link.ready ? "This game is set up on the board. New game starts it over."
+      : link.port ? "Waiting for the board." : "Not connected.") + "</p>";
+    return;
+  }
+  for (const f of form.fields) {                 // first the values, so show rules see the current ones
+    const ok = f.choices.some((c) => c[0] === form.picked[f.key]);
+    if (!form.touched.has(f.key) || !ok) form.picked[f.key] = f.value;
+  }
+  form.fields.forEach((f, i) => {
+    if (!shown(f)) return;
+    const id = "opt" + i;
+    const lab = document.createElement("label");
+    lab.htmlFor = id;
+    lab.textContent = f.label;
+    const sel = document.createElement("select");
+    sel.id = id;
+    for (const [v, t] of f.choices) {
+      const o = document.createElement("option");
+      o.value = v;
+      o.textContent = t;
+      sel.append(o);
+    }
+    sel.value = form.picked[f.key];
+    sel.onchange = () => { form.picked[f.key] = sel.value; form.touched.add(f.key); renderForm(); $(id) && $(id).focus(); };
+    box.append(lab, sel);
+    if (f.note) {
+      const n = document.createElement("p");
+      n.className = "note";
+      n.textContent = f.note;
+      box.append(n);
+    }
+  });
+}
+
+function setupMsg(text, bad) {
+  const m = $("setupmsg");
+  m.classList.toggle("hidden", !text);
+  m.textContent = text || "";
+  m.style.color = bad ? "var(--bad)" : "";
+}
+
+$("start").onclick = () => {
+  const out = {};
+  for (const f of form.fields) if (shown(f)) out[f.key] = form.picked[f.key];
+  setupMsg("Starting…");
+  link.send("START " + JSON.stringify(out));
+};
+$("newgame").onclick = () => { setupMsg("Starting over…"); link.send("NEWGAME"); };
+
+function setWatch() { if (link.ready) link.send("WATCH " + ($("watch").checked && !document.hidden ? "on" : "off")); }
+document.addEventListener("visibilitychange", setWatch);
+
+async function setTime() {
+  await sleep(1000 - new Date().getMilliseconds());   // on the second, as the radio does
+  if (!link.ready) return;
+  const d = new Date(), p = (n) => String(n).padStart(2, "0");
+  const t = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  link.send("TIME " + t);
+  $("clocknote").textContent = "Set to this computer's clock at " + d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + ".";
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// The console
+const LOG_MAX = 60000;
+function consoleText(s) {
+  const log = $("log");
+  const atEnd = log.scrollTop + log.clientHeight >= log.scrollHeight - 4;
+  let t = log.textContent + s.replace(/\x1b\][^\x07\x1b]*(\x07|\x1b\\)|\x1b\[[0-9;]*[A-Za-z]/g, "");   // title bar and cursor codes
+  if (t.length > LOG_MAX) t = t.slice(t.length - LOG_MAX * 0.8);
+  log.textContent = t;
+  if (atEnd) log.scrollTop = log.scrollHeight;
+}
+
+async function restart(clean) {
+  if (!link.port) return;
+  link.ready = false;
+  link.restarting = true;                       // until "soft reboot": its stop on the way isn't news
+  clearTimeout(link.helloTimer);
+  readyUI(false);
+  $("stopped").classList.add("hidden");
+  status("Restarting the board", "warn");
+  overlay("Restarting the board…");
+  await link.write("\x03");                     // stop the program (Ctrl-C)
+  await sleep(400);
+  if (clean) {
+    await link.write("\r");                     // into the REPL
+    await sleep(400);
+    await link.write("import gamehost.saved as s; s.forget()\r");
+    await sleep(600);
+  }
+  link.state = "unknown";
+  await link.write("\x04");                     // and start it again (Ctrl-D)
+  setTimeout(() => { if (link.restarting) { link.restarting = false; link.tries = 0; hello(); } }, 4000);
+}
+
+function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+// ---------------------------------------------------------------------------------------------------------------
+// The controller
+for (let i = 1; i <= 6; i++) {
+  const o = document.createElement("option");
+  o.value = i;
+  o.textContent = "Player " + i + " (USB)";
+  $("player").append(o);
+}
+$("player").value = "1";
+const press = (a) => { if (link.ready) link.send("IN p" + $("player").value + " " + a); };
+const REPEATS = new Set(["up", "down", "left", "right"]);
+for (const b of document.querySelectorAll("[data-a]")) {
+  let timer = null;
+  const stop = () => { clearTimeout(timer); timer = null; b.classList.remove("down"); };
+  b.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    b.setPointerCapture(e.pointerId);
+    b.classList.add("down");
+    const a = b.dataset.a;
+    press(a);
+    if (REPEATS.has(a)) {                       // held, it repeats like a held D-pad on the radio
+      const again = (ms) => { timer = setTimeout(() => { press(a); again(160); }, ms); };
+      again(400);
+    }
+  });
+  b.addEventListener("pointerup", stop);
+  b.addEventListener("pointercancel", stop);
+  b.addEventListener("lostpointercapture", stop);
+  b.addEventListener("keydown", (e) => {        // a keyboard user who tabbed to the button
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); if (!e.repeat) press(b.dataset.a); }
+  });
+}
+const KEYS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", Enter: "pick",
+               Escape: "back", Backspace: "back" };
+document.addEventListener("keydown", (e) => {
+  const t = document.activeElement;
+  if (t && t !== document.body && t !== $("stage")) return;     // typing in a field, or on a button: theirs
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  let a = KEYS[e.key];
+  if (e.key === " ") a = e.shiftKey ? "move_back" : "move";
+  if (e.key >= "1" && e.key <= "6") { $("player").value = e.key; e.preventDefault(); return; }
+  if (!a) return;
+  e.preventDefault();
+  if (e.repeat && !REPEATS.has(a)) return;
+  press(a);
+});
+$("stage").addEventListener("pointerdown", () => $("stage").focus());
+
+// ---------------------------------------------------------------------------------------------------------------
+// Settings
+$("game").onchange = (e) => { link.send("SET game " + e.target.value); e.target.blur(); };
+$("bright").oninput = (e) => { $("bval").textContent = brightLabel(+e.target.value); };
+$("bright").onchange = (e) => { link.send("SET brightness " + e.target.value); };
+$("defaults").onclick = () => { link.send("SET game default"); link.send("SET brightness default"); };
+$("settime").onclick = () => setTime();
+$("watch").onchange = () => { setWatch(); if (!$("watch").checked) view.show(null); };
+$("send").onclick = () => {
+  const v = $("cmd").value.trim();
+  if (!v || !link.port) return;
+  link.write("/" + v + "\r");                   // "/" so a command starting with a key letter (s, p, ...) is a command
+  $("cmd").value = "";
+};
+$("cmd").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("send").onclick(); } });
+$("clear").onclick = () => { $("log").textContent = ""; };
+$("restart").onclick = () => restart(false);
+$("restart2").onclick = () => restart(false);
+$("restart3").onclick = () => restart(false);
+$("clean").onclick = () => {
+  if (confirm("Forget the game and brightness picked here (or on the radio's page), and start with config.py's?")) restart(true);
+};
+
+// ---------------------------------------------------------------------------------------------------------------
+// Start
+$("connect").onclick = async () => {
+  try {
+    const port = await navigator.serial.requestPort({ filters: VENDORS.map((v) => ({ usbVendorId: v })) });
+    await connect(port);
+  } catch (e) {
+    if (e.name !== "NotFoundError") status("Couldn't connect: " + e.message, "bad");   // NotFoundError: cancelled
+  }
+};
+$("disconnect").onclick = () => disconnect();
+
+async function start() {
+  if (!("serial" in navigator)) {
+    $("unsupported").classList.remove("hidden");
+    $("connect").disabled = true;
+    overlay("This browser has no Web Serial. Open this page in Edge, Chrome or Firefox.");
+    view.draw();
+    return;
+  }
+  navigator.serial.addEventListener("connect", (e) => { if (!link.port) connect(e.target); });
+  navigator.serial.addEventListener("disconnect", (e) => {
+    if (e.target === link.port) lost("The board was unplugged. It reconnects by itself when it's plugged back in.");
+  });
+  window.addEventListener("pagehide", () => { if (link.ready) link.send("BYE"); });
+  view.draw();
+  const ports = (await navigator.serial.getPorts()).filter((p) => VENDORS.includes(p.getInfo().usbVendorId));
+  if (ports.length === 1) connect(ports[0]);           // picked here before: no need to ask again
+}
+start();
+</script>
+</body>
+</html>

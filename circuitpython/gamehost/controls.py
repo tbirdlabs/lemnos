@@ -39,6 +39,7 @@ class Controller:
 
 ADDED = "added"
 REMOVED = "removed"
+ACTION = "action"
 
 
 class Controls:
@@ -59,6 +60,11 @@ class Controls:
         self.queue = []
         self.notices = []          # (ADDED or REMOVED, controller), for the host to pass to the game
         self.commands = []         # typed command lines, for the host to pass to the game
+        self.settings = []         # (key, value, reply) from a hub (SET lines), for the host to apply
+        self.current = None        # the Game object running (the host sets it; the USB page asks it for options())
+        self.game = ""             # the name of the game running (the host sets it; the radio reports it)
+        self.brightness = "default"   # the brightness setting, "1".."10" or "default" (the host sets it)
+        self._stream = None        # while stream() polls: where arrivals and departures go, in order with actions
         if not hardware:
             return
         for k, spec in enumerate(config.CONTROLLERS):
@@ -90,18 +96,24 @@ class Controls:
         if c is not None:
             if not c.connected:
                 c.connected = True
-                self.notices.append((ADDED, c))
+                self._notice(ADDED, c)
             return c
         c = Controller(cid, name, seat, can)
         self.controllers.append(c)
-        self.notices.append((ADDED, c))
+        self._notice(ADDED, c)
         return c
 
     def remove(self, controller):
         """The controller went away (a hub calls this). It stays in the list, marked not connected."""
         if controller.connected:
             controller.connected = False
-            self.notices.append((REMOVED, controller))
+            self._notice(REMOVED, controller)
+
+    def _notice(self, kind, c):
+        if self._stream is not None:
+            self._stream.append((kind, c, None))
+        else:
+            self.notices.append((kind, c))
 
     def connected(self):
         """The controllers connected right now."""
@@ -115,6 +127,33 @@ class Controls:
         """Queue a command line for the game (the console hub calls this; desktop tests too)."""
         self.commands.append(text)
 
+    def setting(self, key, value, reply=None):
+        """Queue a board setting for the host (the radio and the USB page call this): "brightness" 1-10 or
+        "default", "game", and from the USB page "setup" ({key: value}, for Game.setup) and "new_game".
+        reply(message): called once it's done, with None or what went wrong."""
+        self.settings.append((key, value, reply))
+
+    def take_settings(self):
+        """Settings since the last call, oldest first: [(key, value, reply), ...]."""
+        out = self.settings
+        self.settings = []
+        return out
+
+    def hub_command(self, text):
+        """A console command for a hub ("radio pair"): its reply, or None if no hub takes it."""
+        for h in self.hubs:
+            if hasattr(h, "command"):
+                reply = h.command(text)
+                if reply is not None:
+                    return reply
+        return None
+
+    def shown(self, lights, now):
+        """The frame just went to the LEDs: hubs that want it (the USB page's board view) get it."""
+        for h in self.hubs:
+            if hasattr(h, "shown"):
+                h.shown(lights, now)
+
     def take_commands(self):
         """Command lines typed since the last call, oldest first."""
         out = self.commands
@@ -125,6 +164,27 @@ class Controls:
         """Controllers added or removed since the last call: [(ADDED or REMOVED, controller), ...]."""
         out = self.notices
         self.notices = []
+        return out
+
+    def stream(self, now=None):
+        """Everything since the last call, in the order it happened: (ADDED, controller, None),
+        (REMOVED, controller, None) and (ACTION, controller, action). So a controller that arrives and presses
+        something in the same frame arrives first, and one that presses and leaves leaves last. (The host uses this;
+        take_notices() and poll() are the same split in two.)"""
+        if now is None:
+            now = time.monotonic()
+        out = [(k, c, None) for k, c in self.notices]
+        self.notices = []
+        out.extend((ACTION, c, a) for c, a in self.queue)
+        self.queue = []
+        self._stream = out
+        try:
+            for src, c in self.sources:
+                src.poll(now, lambda a, c=c: out.append((ACTION, c, a)))
+            for h in self.hubs:
+                h.poll(now, lambda c, a: out.append((ACTION, c, a)))
+        finally:
+            self._stream = None
         return out
 
     def poll(self, now=None):

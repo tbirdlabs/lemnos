@@ -134,6 +134,9 @@ class Game(BaseGame):
         if action == "pick":
             self.seconds = not self.seconds
 
+    HELP = (("time", "the time, and where it came from"),
+            ("time 14:32", "set it; also 2:32pm, 14:32:05, 2026-10-20 14:32:05"))
+
     def command(self, text, now):
         return self.wall.command(text)
 

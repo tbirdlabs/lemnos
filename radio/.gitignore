@@ -1,0 +1,10 @@
+.pio/
+.deps/
+build/
+sdkconfig
+sdkconfig.*
+!sdkconfig.defaults
+!sdkconfig.defaults.*
+dist/
+managed_components/
+test/build/

@@ -1,6 +1,8 @@
-# The time of day, for any game (the clock, a night dimmer): from a real-time clock chip on the STEMMA QT I2C bus if
-# config.RTC names one, else from the board's own clock, which forgets the time at power-off. Setting the time sets
-# both, so with a chip (on its coin cell) it only needs setting once.
+# The time of day, for any game (the clock, a night dimmer): from the radio co-processor if one is attached (NTP
+# time, already in local time with daylight saving: its TIME lines, walltime.tell), else from a real-time clock chip
+# on the STEMMA QT I2C bus if config.RTC names one, else from the board's own clock, which forgets the time at
+# power-off. Setting the time sets both, so with a chip (on its coin cell) it only needs setting once; the radio's
+# time is written to the chip too, so the clock keeps it through power-off without the radio.
 #
 #   from gamehost import walltime
 #   w = walltime.Wall()          # once: finds the chip and reads it
@@ -9,12 +11,14 @@
 #   w.known                      # False until the time has been set (no chip and no setting, or the chip lost it)
 #   w.set(14, 32, 0)             # with a date too: w.set(14, 32, 0, (2026, 10, 20))
 #   w.command("time 14:32")      # a console command (Game.command): the reply to print, or None if it isn't one
+#   walltime.tell((2026, 10, 20, 14, 5, 0))   # a time source (the radio) says it's this, now: every Wall takes it
 #
 # Kept in whole milliseconds from time.monotonic_ns(), so it stays exact however long the board runs
 # (time.monotonic() is a float that loses precision after a day or so). The board's own clock and a chip both
 # count whole seconds, so on reading one the board waits for its seconds to tick over (up to a second, a frame at
 # a time) and starts the milliseconds there. A chip is read again every 15 minutes; it's the better clock.
-# Local time only, no time zones: change it for daylight saving time.
+# Local time only, no time zones: the radio does that math (it sends local time); without one, change it for
+# daylight saving time by hand.
 
 import time
 import config
@@ -23,6 +27,21 @@ DAY = 86400000
 SYNC_MS = 15 * 60 * 1000                 # how often to read the chip again
 RETRY_MS = 60 * 1000                     # after a read that failed
 NO_DATE = (2001, 1, 1)                   # the date set with a time alone when the board has none
+CHIP_WRITE_MS = 2000                     # a told time this far from the clock's is a change: write it to the chip
+
+_told = None                             # the latest told time: ((y, mo, d, h, mi, s), monotonic ms it arrived)
+
+
+def tell(t, ns=None):
+    """A time source (the radio's TIME line, sent right on the second) says the local time is t = (year, month,
+    day, hour, minute, second) now. Sets the board's own clock; every Wall takes it on its next update (and one made
+    later starts from it). ns: the nanosecond counter (time.monotonic_ns; tests pass their own)."""
+    global _told
+    t = tuple(t)
+    _told = (t, (ns or time.monotonic_ns)() // 1000000)
+    rtc = _board_rtc()
+    if rtc is not None:
+        rtc.datetime = time.struct_time(t + (weekday(*t[:3]), -1, -1))
 
 
 def _bcd(b):
@@ -184,10 +203,34 @@ class Wall:
         self.wait = None                 # reading a clock until its seconds tick over: [which, first seconds, give up]
         self.next_read = 0
         self.chip_ok = None              # the last chip read: True, False (failed or lost the time), None (none yet)
+        self.told = None                 # the told time this Wall last took
         if self.chip is not None:
             self.next_read = self.at
         elif self.board_time() is not None:
             self._begin("board", self.at)            # set before a reload: it's still running
+        if _told is not None:
+            self._take(_told)
+
+    def _take(self, told):
+        """Take a told time: it was t at monotonic ms m. Written to the chip when it's new or the clock was off by
+        CHIP_WRITE_MS or more (a daylight saving change, a correction), and the chip isn't read while told times
+        keep coming."""
+        t, m = told
+        was = (self.base + m - self.at) % DAY
+        now = (t[3] * 3600 + t[4] * 60 + t[5]) * 1000
+        off = min((was - now) % DAY, (now - was) % DAY)
+        first = self.told is None
+        self.told = told
+        self.wait = None
+        self._start(t[3], t[4], t[5], m)
+        if self.chip is not None:
+            if first or off >= CHIP_WRITE_MS:
+                try:
+                    self.chip.write(t, weekday(*t[:3]))
+                    self.chip_ok = True
+                except OSError:
+                    self.chip_ok = False
+            self.next_read = self.mono() + SYNC_MS
 
     def mono(self):
         return self.ns() // 1000000
@@ -221,6 +264,8 @@ class Wall:
 
     def update(self):
         """Call every frame: reads the chip every 15 minutes (or the board's clock after a reload, with no chip)."""
+        if _told is not None and _told is not self.told:
+            self._take(_told)
         m = self.mono()
         if self.wait is None:
             if self.chip is None or m < self.next_read:
@@ -277,6 +322,8 @@ class Wall:
             out = "%04d-%02d-%02d " % (y, mo, d) + out
         if not self.known:
             out += " (not set)"
+        if self.told is not None:
+            out += ", from the radio"
         if self.chip is not None:
             out += ", RTC chip " + {True: "ok", False: "not read or lost the time", None: "not read yet"}[self.chip_ok]
         return out
