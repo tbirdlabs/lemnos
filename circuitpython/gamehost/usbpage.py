@@ -9,7 +9,7 @@
 #   !WATCH on|off         send the lights (LEDS), or stop
 #   !BYE                  the page is closing: its players leave (closing the port does the same)
 #   !START {"mode": "invasion", ...}       start a game set up on the page (Game.setup); answered with SETUP
-#   !NEWGAME              the game running, made afresh: back at its own setup on the board; answered with SETUP
+#   !NEWGAME              the game running, made afresh: back at its setup on the board; answered with SETUP
 # To the page:
 #   @HELLO 2026.10.20     the board software (gamehost.VERSION)
 #   @BOARD large 171      config.BOARD and the LED count: 37 x 3 on the hexes, 6 x 10 on the bars, (small) 44 lines
@@ -187,9 +187,10 @@ class Page(Link):
 
 
 def _field(f):
-    """One options() field, with its choices as lists (JSON has no tuples; CircuitPython's json wants lists)."""
+    """One options() field, with its choices as lists (JSON has no tuples; CircuitPython's json wants lists). What's
+    only for the board (a choice's color, player, bar...) stays behind."""
     out = {"key": f["key"], "label": f.get("label", f["key"]),
-           "choices": [[str(v), str(t)] for v, t in f["choices"]], "value": str(f.get("value", ""))}
+           "choices": [[str(ch[0]), str(ch[1])] for ch in f["choices"]], "value": str(f.get("value", ""))}
     if f.get("show"):
         out["show"] = {k: [str(x) for x in v] for k, v in f["show"].items()}
     if f.get("note"):

@@ -1,13 +1,12 @@
-# Island Rush on the board (docs/rules/island-rush-rules-v0.7.md): up to 6 players race through the jungle from the
+# Island Rush on the board (docs/rules/island-rush-rules-v0.8.md): up to 6 players race through the jungle from the
 # island's corners to the taco truck in the middle; tigers chase the leaders, and one guards the truck. One player holds
 # the truck at a time (another rolls them off it); whoever holds it after the tiger at the end of a round wins. A tiger
 # in your way can be fought off, and another player rolled off a spot. The rules are engine.py, the computer players
-# ai.py; this file is the board's side: setup, the play UI and drawing.
+# ai.py; this file is the board's side: the setup's fields, the play UI and drawing.
 #
-# Setup: any controller presses pick to join. Move picks a corner (each seat's is the left end of its side, as its
-# player faces the board), pick takes it; move picks a color, pick takes it. The first to join then sets how many play
-# in all, 2 to 6, on their bar (the computer plays the rest); pick starts once everyone has a color. Back undoes a
-# step. The USB page can set it all up instead (options, setup).
+# Setup (the board's lobby, gamehost/lobby.py, or the USB page): each player who joins picks a corner (each seat's is
+# the left end of its side, as its player faces the board; the island shows it, white blinking) and then a color;
+# the first to join then sets how many play in all, 2 to 6 (the computer plays the rest, spread round the board).
 #
 # Playing, as in Salient: each player reads the island from their own side. Move steps through the rows that hold
 # something you can pick, then your bar; pick opens a row, move steps through its spots, pick picks; back returns to
@@ -76,12 +75,6 @@ def draw_spot(lights, t, u, color, glow=False, effect=None):
     lights.spot(t, colors, effects)
 
 
-def cycle(lst, cur, d):
-    if cur in lst:
-        return lst[(lst.index(cur) + d) % len(lst)]
-    return lst[0]
-
-
 def _gaps(seats):
     s = sorted(seats)
     return [(s[(i + 1) % len(s)] - s[i]) % 6 or 6 for i in range(len(s))]
@@ -113,16 +106,6 @@ def spread_seats(humans, total):
     return best[1]
 
 
-class Joiner:
-    """A player during setup: choosing a corner, then a color."""
-
-    def __init__(self, c, seat):
-        self.c = c
-        self.stage = "side"              # side, color, done (the first player: total)
-        self.seat = seat
-        self.color = 0
-
-
 class Seat:
     def __init__(self, seat, color, ctrl):
         self.seat = seat
@@ -138,7 +121,9 @@ class Game(BaseGame):
         self.timer_at = None
         self.timer_fn = None
         self._items = None
-        self.enter_setup()
+        self.st = None                   # no game until setup()
+        self.busy = False
+        self.jungle = None               # the jungle alone, for the setup's preview
 
     # ---- one pending step at a time (animations, the computer) ----
     def after(self, now, dt, fn):
@@ -153,120 +138,123 @@ class Game(BaseGame):
             fn(now)
 
     # =========================================================================
-    # Setup
+    # Setup (the lobby walks people through options(); see gamehost/game.py)
     # =========================================================================
-    def enter_setup(self):
-        self.phase = "join"
-        self.leader = None
-        self.joiners = []
-        self.total = 2
-        self.st = None
-        self.timer_at = None
-        self.preview = E.new_game((), 1)            # the jungle, for the setup screen
-
-    def joiner(self, c):
-        for j in self.joiners:
-            if j.c is c:
-                return j
-        return None
-
-    def taken_seats(self, but=None):
-        return [j.seat for j in self.joiners if j is not but and j.stage != "side"]
-
-    def taken_colors(self, but=None):
-        return [j.color for j in self.joiners if j is not but and j.stage not in ("side", "color")]
-
-    def human_seats(self):
-        return sorted(j.seat for j in self.joiners if j.stage != "side")
-
-    def valid_totals(self):
-        h = self.human_seats()
-        return [t for t in range(max(2, len(h)), 7)]
-
-    def fix_total(self):
-        v = self.valid_totals()
-        if v and self.total not in v:
-            bigger = [t for t in v if t >= self.total]
-            self.total = bigger[0] if bigger else v[-1]
-
-    def all_ready(self):
-        return bool(self.joiners) and all(j.stage in ("done", "total") for j in self.joiners)
-
-    def join(self, c):
-        free = [x for x in range(1, 7) if x not in self.taken_seats()]
-        if not free:
-            return
-        if not self.joiners:
-            self.leader = c
-        self.joiners.append(Joiner(c, c.seat if c.seat in free else free[0]))
-        self.fix_total()
-
-    def setup_event(self, c, a, now):
-        step = 1 if a in ("move", "right", "up") else (-1 if a in ("move_back", "left", "down") else 0)
-        j = self.joiner(c)
-        if j is None:
-            if a == "pick":
-                self.join(c)
-            return
-        lead = c is self.leader
-        if j.stage == "side":
-            free = [x for x in range(1, 7) if x not in self.taken_seats(j)]
-            if step and free:
-                j.seat = cycle(free, j.seat, step)
-            elif a == "pick" and j.seat in free:
-                j.stage = "color"
-                colors = [k for k in range(len(PALETTE)) if k not in self.taken_colors(j)]
-                j.color = colors[0]
-            elif a == "back":
-                self.joiners.remove(j)
-                if lead:
-                    self.leader = self.joiners[0].c if self.joiners else None
-        elif j.stage == "color":
-            colors = [k for k in range(len(PALETTE)) if k not in self.taken_colors(j)]
-            if step:
-                j.color = cycle(colors, j.color, step)
-            elif a == "pick" and j.color in colors:
-                j.stage = "total" if lead else "done"
-            elif a == "back":
-                j.stage = "side"
-        elif j.stage == "done":
-            if a == "back":
-                j.stage = "color"
-        elif j.stage == "total":
-            v = self.valid_totals()
-            if step and v:
-                self.total = cycle(v, self.total, step)
-            elif a == "pick" and self.all_ready() and self.total in v:
-                self.start(now)
-                return
-            elif a == "back":
-                j.stage = "color"
-        self.fix_total()
-
-    def lineup(self):
-        """(seat, color, controller or None) for every player, seat order (turn order starts at the lowest seat)."""
-        h = self.human_seats()
-        seats = spread_seats(h, self.total) or h
-        used = [j.color for j in self.joiners if j.stage != "side"]
-        spare = [k for k in range(len(PALETTE)) if k not in used]
-        out = []
-        for x in seats:
-            j = None
-            for jj in self.joiners:
-                if jj.stage != "side" and jj.seat == x:
-                    j = jj
-            if j:
-                out.append((x, PALETTE[j.color], j.c))
-            else:
-                out.append((x, PALETTE[spare.pop(0)], None))
+    def options(self, choices=None):
+        ctrls = self.board.controllers
+        seats = [(str(x), "Seat %d" % x) for x in range(1, 7)]
+        colors = [(str(k), NAMES[k], PALETTE[k]) for k in range(len(PALETTE))]
+        if choices is None:              # the page: everyone playing to begin with
+            least = 2
+            n = max(2, min(6, len(ctrls)))
+        else:
+            humans = self.humans(choices)
+            least = max(2, len(humans) if not isinstance(humans, str) else 0)
+            p = choices.get("players", "")
+            n = max(least, int(p)) if p.isdigit() else least
+        out = [{"key": "players", "label": "Players", "value": str(n), "bar": "fill",
+                "choices": [(str(k), "%d players" % k) for k in range(least, 7)],
+                "note": "The computer plays any seat no one takes."}]
+        taken = []
+        for k, c in enumerate(ctrls):    # each controller at its own seat, or the next free one
+            free = [x for x in range(1, 7) if x not in taken]
+            seat = c.seat if c.seat in free else (free[0] if free else 0)
+            if seat:
+                taken.append(seat)
+            out.append({"key": "seat:" + c.id, "label": c.name, "value": str(seat) if seat else "out",
+                        "choices": [("out", "Sits out")] + seats, "player": c.id, "out": "out", "unique": "seat",
+                        "seat": True})
+            out.append({"key": "color:" + c.id, "label": c.name + ": color", "value": str(k % len(PALETTE)),
+                        "choices": colors, "player": c.id, "unique": "color",
+                        "show": {"seat:" + c.id: [str(x) for x in range(1, 7)]}})
         return out
 
+    def humans(self, choices):
+        """{seat: (controller, color index or -1)} for the controllers playing, or a message if the choices don't
+        work."""
+        out = {}
+        used = []
+        for c in self.board.controllers:
+            s = choices.get("seat:" + c.id, "out")
+            if s == "out":
+                continue
+            if not s.isdigit() or not 1 <= int(s) <= 6:
+                return "Pick a seat from 1 to 6 for %s." % c.name
+            if int(s) in out:
+                return "%s and %s are both at seat %s." % (out[int(s)][0].name, c.name, s)
+            k = choices.get("color:" + c.id, "")
+            k = int(k) if k.isdigit() and int(k) < len(PALETTE) and int(k) not in used else -1
+            used.append(k)
+            out[int(s)] = (c, k)
+        return out
+
+    def lineup(self, choices):
+        """(seat, color, controller or None) for every player, seat order (turn order starts at the lowest seat),
+        or a message if the choices don't work."""
+        humans = self.humans(choices)
+        if isinstance(humans, str):
+            return humans
+        p = choices.get("players", "2")
+        total = int(p) if p.isdigit() else 2
+        if not 2 <= total <= 6:
+            return "Island Rush is for 2 to 6 players."
+        if total < len(humans):
+            return "%d controllers are playing, more than %d players." % (len(humans), total)
+        seats = spread_seats(sorted(humans), total)
+        spare = [k for k in range(len(PALETTE)) if k not in [h[1] for h in humans.values()]]
+        out = []
+        for x in seats:
+            c, k = humans.get(x, (None, -1))
+            if k < 0:
+                k = spare.pop(0)
+            out.append((x, PALETTE[k], c))
+        return out
+
+    def setup(self, choices, now):
+        lineup = self.lineup(choices)
+        if isinstance(lineup, str):
+            return lineup
+        self.start(now, lineup=lineup)
+        return None
+
+    def preview(self, lights, now, lobby):
+        """The jungle and the truck; each player's corner, white blinking while they choose it, then in their color
+        (blinking while they choose that); once the leader sets how many play, the computers' corners too."""
+        if self.jungle is None:
+            self.jungle = E.new_game((), 1)
+        pv = self.jungle
+        self.draw_jungle(lights, pv.units, pv.owner, (), [E.corner_of(x) for x in range(1, 7)])
+        lights.spot(E.CENTER, [TRUCK] * 3, TRUCK_GLOW)
+        ch = lobby.choices
+        lead = lobby.joined[0] if lobby.joined else None
+        if lead is not None and lobby.editing(lead) in ("players", "start"):
+            lineup = self.lineup(ch)
+            if not isinstance(lineup, str):
+                for x, color, c in lineup:
+                    if c is None:
+                        draw_spot(lights, E.corner_of(x), 1, color)
+        for c in lobby.joined:
+            s = ch.get("seat:" + c.id, "")
+            if not s.isdigit():
+                continue
+            k = ch.get("color:" + c.id, "")
+            color = PALETTE[int(k)] if k.isdigit() and int(k) < len(PALETTE) else WHITE
+            doing = lobby.editing(c)
+            if doing == "seat:" + c.id:
+                lights.spot(E.corner_of(int(s)), [WHITE] * 3, CHOOSING)
+            else:
+                lights.spot(E.corner_of(int(s)), [color] * 3, CHOOSING if doing == "color:" + c.id else None)
+                if doing is None:
+                    lights.bar(int(s), [color] * E.BAR)
+
+    def finished(self):
+        return self.st is not None and self.st.over and not self.busy
+
     def start(self, now, seed=None, lineup=None):
-        lineup = lineup or self.lineup()
+        """A new game: lineup is (seat, color, controller or None) for each player, seat order."""
         self.st = E.new_game(tuple(x[0] for x in lineup), dice.seed() if seed is None else seed)
         self.st.tiger_log = []
         self.seats = [Seat(x[0], x[1], x[2]) for x in lineup]
-        self.phase = "play"
         self.timer_at = None
         self.mode_ui = "board"           # board | aim
         self.aim = -1
@@ -282,44 +270,6 @@ class Game(BaseGame):
         self.cursor = self.cur().pos
         self.start_scan()
         self.schedule_ai(now)
-
-    # ---- the USB page ----
-    def options(self):
-        ctrls = self.board.controllers
-        seats = [(str(x), "Seat %d" % x) for x in range(1, 7)]
-        out = [{"key": "players", "label": "Players", "value": str(max(2, min(6, len(ctrls)))),
-                "choices": [(str(n), "%d players" % n) for n in range(2, 7)],
-                "note": "The computer plays any seat no one takes."}]
-        taken = []
-        for c in ctrls:                  # each controller at its own seat, or the next free one
-            free = [x for x in range(1, 7) if x not in taken]
-            seat = c.seat if c.seat in free else (free[0] if free else 0)
-            if seat:
-                taken.append(seat)
-            out.append({"key": "seat:" + c.id, "label": c.name, "value": str(seat) if seat else "out",
-                        "choices": [("out", "Sits out")] + seats})
-        return out
-
-    def setup(self, choices, now):
-        humans = {}
-        for c in self.board.controllers:
-            s = choices.get("seat:" + c.id, "out")
-            if s == "out":
-                continue
-            if not s.isdigit() or not 1 <= int(s) <= 6:
-                return "Pick a seat from 1 to 6 for %s." % c.name
-            if int(s) in humans:
-                return "%s and %s are both at seat %s." % (humans[int(s)].name, c.name, s)
-            humans[int(s)] = c
-        p = choices.get("players", "2")
-        total = int(p) if p.isdigit() else 2
-        if not 2 <= total <= 6:
-            return "Island Rush is for 2 to 6 players."
-        if total < len(humans):
-            return "%d controllers are playing, more than %d players." % (len(humans), total)
-        seats = spread_seats(sorted(humans), total)
-        self.start(now, lineup=[(x, PALETTE[k], humans.get(x)) for k, x in enumerate(seats)])
-        return None
 
     # =========================================================================
     # Playing
@@ -374,10 +324,6 @@ class Game(BaseGame):
 
     def play_event(self, c, a, now):
         st = self.st
-        if st.over:
-            if a == "pick" and not self.busy:
-                self.enter_setup()
-            return
         if self.busy or not self.human() or c is not self.cur().ctrl:
             return
         p = st.cur
@@ -579,19 +525,15 @@ class Game(BaseGame):
     # Input and drawing
     # =========================================================================
     def event(self, c, a, now):
-        if self.phase == "play":
+        if self.st is not None and not self.st.over:
             self.play_event(c, a, now)
-        else:
-            self.setup_event(c, a, now)
 
     def make_view(self):
         return E.board(self.st)
 
     def draw(self, lights, now):
-        if self.phase == "play":
+        if self.st is not None:
             self.draw_play(lights, now)
-        else:
-            self.draw_setup(lights)
 
     def draw_jungle(self, lights, units, owner, tigers, skip=(), glow=()):
         for t in range(E.N):
@@ -601,25 +543,6 @@ class Game(BaseGame):
                 lights.spot(t, [TIGER] * 3, CURSOR if t in glow else PROWL)
             elif units[t] > 0:
                 draw_spot(lights, t, units[t], JUNGLE)
-
-    def draw_setup(self, lights):
-        pv = self.preview
-        corners = [E.corner_of(x) for x in range(1, 7)]
-        self.draw_jungle(lights, pv.units, pv.owner, (), corners)
-        lights.spot(E.CENTER, [TRUCK] * 3, TRUCK_GLOW)
-        lead = self.joiner(self.leader) if self.leader is not None else None
-        if lead is not None and lead.stage == "total":
-            for x, color, c in self.lineup():
-                if c is None:
-                    draw_spot(lights, E.corner_of(x), 1, color)
-        for j in self.joiners:
-            color = WHITE if j.stage == "side" else PALETTE[j.color]
-            effect = CHOOSING if j.stage in ("side", "color") else None
-            lights.spot(E.corner_of(j.seat), [color] * 3, effect)
-            if j.stage == "total":
-                lights.bar(j.seat, [color if i < self.total else OFF for i in range(E.BAR)])
-            else:
-                lights.bar(j.seat, [color] * E.BAR, effect)
 
     def draw_play(self, lights, now):
         st = self.st

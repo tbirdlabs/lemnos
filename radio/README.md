@@ -10,7 +10,7 @@ three wires:
 - **The time of day** from the internet (NTP), with the time zone and daylight saving worked out on the radio.
 
 Up to six players (p1 to p6; up to four of them Bluetooth). Every controller becomes the same three things, move
-(up/down/left/right), pick and back, so games never know what anyone is holding. The board runs as before with no
+(up/down/left/right), pick, back and menu (the board's game picker), so games never know what anyone is holding. The board runs as before with no
 radio attached. Wiring is in [docs/wiring.md](../docs/wiring.md#the-radio); the protocol on the wire is in
 [NOTES.md](../NOTES.md#radio-protocol).
 
@@ -76,13 +76,13 @@ or type `radio pair` on the SCORPIO's console. Pairing mode lasts a minute; whil
 a host can connect. With nothing paired yet, the radio starts in pairing mode. Outside pairing mode only the
 controllers it knows can connect.
 
-| Controller | To pair | After that | Moves | Pick | Back |
-| --- | --- | --- | --- | --- | --- |
-| Xbox One (1708) or Series | Turn it on, then hold the small pair button on top until the Xbox button flashes fast | Press the Xbox button | D-pad or left stick | A | B |
-| Xbox Adaptive Controller | The same, with its pair button on the top edge | Its Xbox button | D-pad, or switches in the jacks set to D-pad | A | B |
-| Wiimote, upright (one hand) | Press the red SYNC button under the battery cover | Any button | D-pad | A | B (the trigger) |
-| Wiimote, sideways (two hands) | The same; then choose "Two hands" for it on the page | Any button | D-pad | 2 | 1 |
-| Phone | Open `http://salient.local/pad` (or **Play from this phone**) | Open the page again | On-screen D-pad | PICK | BACK |
+| Controller | To pair | After that | Moves | Pick | Back | Menu |
+| --- | --- | --- | --- | --- | --- | --- |
+| Xbox One (1708) or Series | Turn it on, then hold the small pair button on top until the Xbox button flashes fast | Press the Xbox button | D-pad or left stick | A | B | Xbox button or Menu |
+| Xbox Adaptive Controller | The same, with its pair button on the top edge | Its Xbox button | D-pad, or switches in the jacks set to D-pad | A | B | Xbox button or Menu |
+| Wiimote, upright (one hand) | Press the red SYNC button under the battery cover | Any button | D-pad | A | B (the trigger) | Home |
+| Wiimote, sideways (two hands) | The same; then choose "Two hands" for it on the page | Any button | D-pad | 2 | 1 | Home |
+| Phone | Open `http://salient.local/pad` (or **Play from this phone**) | Open the page again | On-screen D-pad | PICK | BACK | Menu |
 
 - **Xbox controllers** need current firmware: update them from the Xbox Accessories app (Windows or an Xbox) if they
   won't pair. Firmware 5 and later uses Bluetooth LE, which is what the radio expects.

@@ -21,6 +21,12 @@ CURSOR = fx.flash(0.6)                   # the spot under a cursor flashes white
 TOUCHING = [G.line_spots(k) for k in range(G.LINES)]     # the one or two hexes beside each line
 
 
+def card(lights, now):
+    """The board's game picker shows this (gamehost/lobby.py): a few painted patches."""
+    for k, t in enumerate(("C2", "C3", "D3", "D5", "E4", "E5", "B4", "F2")):
+        lights.spot(t, [COLORS[k % 6 + 1]] * 3)
+
+
 class Player:
     def __init__(self, controller):
         self.seat = controller.seat or 1

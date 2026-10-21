@@ -402,10 +402,10 @@ static void phone_message(int fd, char* msg) {
         return;
     }
     if (p && msg[0] == 's') {
-        int dirs = 0, pick = 0, back = 0;
-        if (sscanf(msg + 1, "%d %d %d", &dirs, &pick, &back) == 3) {
+        int dirs = 0, pick = 0, back = 0, menu = 0;                 // (a page from 1.0 sends no menu)
+        if (sscanf(msg + 1, "%d %d %d %d", &dirs, &pick, &back, &menu) >= 3) {
             int slot = known_live_slot(&hub_known, p->id);
-            pad_input_t in = {.dirs = (uint8_t)(dirs & 15), .pick = pick != 0, .back = back != 0};
+            pad_input_t in = {.dirs = (uint8_t)(dirs & 15), .pick = pick != 0, .back = back != 0, .menu = menu != 0};
             if (slot)
                 hub_input(slot, &in);
         }

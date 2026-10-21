@@ -42,6 +42,17 @@ SQRT3_2 = math.sqrt(3) / 2
 ROW_GAP = SQRT3_2                        # rows of hexes (and LEDs) are this far apart, in hex widths
 
 
+def card(lights, now):
+    """The board's game picker shows this (gamehost/lobby.py): the face at ten past ten."""
+    for t in range(G.SPOTS):
+        if max(abs(G.Q[t]), abs(G.R[t]), abs(G.Q[t] + G.R[t])) < 3:
+            lights.spot(t, [FACE] * 3)
+    lights.spot(G.CENTER, [HUB] * 3)
+    lights.spot("C3", [HOUR] * 3)
+    for t in ("C4", "B4"):
+        lights.spot(t, [MINUTE] * 3)
+
+
 def ring_at(j):
     """Ring light j (0-59, clockwise from 12 o'clock; j covers minute j to j+1) as (seat, bar light 0-9).
     A bar's light 0 is at its player's left, so along every bar the lights count anticlockwise."""

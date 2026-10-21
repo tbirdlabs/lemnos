@@ -1,7 +1,8 @@
 // Controllers in, actions out. Every controller, whatever it is, comes here as a pad_input (directions held, the
-// left stick, pick and back held) and leaves as actions: up/down/left/right, pick, back. The platform layer maps a
-// device's own buttons to pick and back (bt.c: a Wiimote's 2 and 1, an Xbox's A and B); this file adds the stick's
-// deadzone and turns a held direction, from the D-pad or the stick, into the same auto-repeat.
+// left stick, pick, back and menu held) and leaves as actions: up/down/left/right, pick, back, menu. The platform
+// layer maps a device's own buttons to pick, back and menu (bt.c: a Wiimote's 2, 1 and Home, an Xbox's A, B and the
+// Xbox button or Start); this file adds the stick's deadzone and turns a held direction, from the D-pad or the
+// stick, into the same auto-repeat. Menu asks the board for its game picker (the board asks again first).
 //
 // Not thread-safe: the caller serializes calls (the ESP32 build holds the hub lock).
 
@@ -35,7 +36,7 @@ typedef struct {
     uint8_t dirs;                      // DIR_* bits held on the D-pad (or the phone's)
     bool has_stick;
     int16_t sx, sy;                    // the left stick, -512..511 (y: down is positive), if has_stick
-    bool pick, back;                   // held
+    bool pick, back, menu;             // held
 } pad_input_t;
 
 typedef void (*pads_emit_t)(int slot, link_action_t a, void* ctx);
@@ -47,7 +48,7 @@ typedef struct {
     uint8_t dirs_before;               // the D-pad bits last time, to see which one is new
     uint8_t held;                      // the direction acted on (one DIR_* bit or 0)
     uint32_t next_repeat;              // when it repeats next
-    bool pick, back;
+    bool pick, back, menu;
 } pad_state_t;
 
 typedef struct {

@@ -331,6 +331,38 @@ def controllers():
     check("controls: find", ctl.find("x") is a and ctl.find("y") is None)
 
 
+def held_buttons():
+    """A wired button held MENU_HOLD_S gives menu, after whatever it gave first; letting go gives nothing more."""
+    from gamehost import inputs
+
+    class Pin:
+        value = True                                  # pulled up: not pressed
+
+    pin = Pin()
+    real = inputs._switch
+    inputs._switch = lambda name: pin
+    try:
+        for spec, first in (({"pin": "X", "does": "back"}, ["back"]),
+                            ({"pin": "X", "does": "pick", "hold": "back"}, ["back"])):
+            b = inputs.Button(spec)
+            got = []
+            pin.value = True
+            b.poll(0.0, got.append)
+            pin.value = False                         # pressed, and held
+            for t in (0.01, 0.05, 1.0, inputs.MENU_HOLD_S - 0.1):
+                b.poll(t, got.append)
+            check("button %s: before the long hold" % spec["does"], got == first, got)
+            b.poll(inputs.MENU_HOLD_S + 0.1, got.append)
+            b.poll(inputs.MENU_HOLD_S + 0.5, got.append)
+            check("button %s: held long, menu once" % spec["does"], got == first + ["menu"], got)
+            pin.value = True
+            b.poll(inputs.MENU_HOLD_S + 1.0, got.append)
+            check("button %s: let go, nothing more" % spec["does"], got == first + ["menu"], got)
+            check("button %s: can menu" % spec["does"], "menu" in b.can)
+    finally:
+        inputs._switch = real
+
+
 def plug_ins():
     """config names built-ins by short name and your own as module.Name."""
     check("plugins: built in", plugins.find("button", {"button": int}, "input type") is int)
@@ -636,6 +668,7 @@ if __name__ == "__main__":
     names()
     small_board()
     controllers()
+    held_buttons()
     plug_ins()
     hosting()
     test_pattern()

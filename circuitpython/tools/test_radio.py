@@ -314,7 +314,8 @@ def salient_two_players():
     from games.salient.rules import DEFAULTS
     h, uart, radio = with_radio(G.Game, "salient")
     g = h.game
-    clk = TS.Clock(g, h.board.lights)
+    lob = h.lobby
+    clk = TS.Clock(h)
 
     def via_radio(game, clock, c, a):
         uart.feed("IN p%s %s\n" % (c.id[-1], a))
@@ -327,16 +328,16 @@ def salient_two_players():
     c1 = h.board.controls.find("radio-p1")
     c2 = h.board.controls.find("radio-p2")
     check("salient: two radio players", c1 in h.board.controllers and c2 in h.board.controllers)
-    while G.MODES[g.mode] != "invasion":
-        via_radio(g, clk, c1, "right")
+    via_radio(g, clk, c1, "pick")                            # p1 joins: Red by default
     via_radio(g, clk, c1, "pick")
-    check("salient: p1 chose Invasion", g.phase == "ready", g.phase)
+    check("salient: p1 chose Red (Invasion)", lob.choices.get("side:radio-p1") == "red", lob.choices)
     via_radio(g, clk, c2, "pick")
-    check("salient: p2 joined as the other side", g.opponent is c2)
+    via_radio(g, clk, c2, "pick")
+    check("salient: p2 joined as the other side", lob.choices.get("side:radio-p2") == "blue", lob.choices)
     via_radio(g, clk, c1, "pick")
-    check("salient: started", g.phase == "play", g.phase)
+    check("salient: started", lob.state == "play", lob.state)
     seed = 15
-    g.start(clk.t, seed, 1)                                  # the board's seed is random; fix it for the test
+    g.start_invasion(clk.t, 1, c1, c2, seed)                 # the board's seed is random; fix it for the test
     TS.play_through("salient over the radio", g, clk, {"radio-p1": TS.drive_arrows, "radio-p2": TS.drive_arrows})
     TS.same_game("salient over the radio", g, seed, G.face_of(1), dict(DEFAULTS))
     FAILS.extend(TS.FAILS)

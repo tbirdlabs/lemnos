@@ -52,7 +52,7 @@ class El {
 const ctx = new Proxy({}, { get: (t, k) => (k in t ? t[k] : () => ({ addColorStop() { } })), set: (t, k, v) => { t[k] = v; return true; } });
 const els = {};
 const docListeners = {};
-const pad = ["up", "left", "pick", "right", "down", "move_back", "move", "back"].map((a) => {
+const pad = ["up", "left", "pick", "right", "down", "move_back", "move", "back", "menu"].map((a) => {
   const b = new El("button"); b.dataset.a = a; return b;
 });
 const document = {
@@ -127,27 +127,32 @@ const sent = () => written.join("");
     pad[2].fire("pointerdown", { pointerId: 1 });
     pad[2].fire("pointerup", {});
     check("the pad's Pick", sent().endsWith("!IN p3 pick\n"));
+    key("Home");
+    check("Home is menu", sent().endsWith("!IN p3 menu\n"));
+    pad[8].fire("pointerdown", { pointerId: 1 });
+    pad[8].fire("pointerup", {});
+    check("the pad's Menu", sent().endsWith("!IN p3 menu\n!IN p3 menu\n"));
     check("players listed", await until(() => $("players").children.length === 2), $("players").children.length);
 
-    // the setup form (Salient's options): Invasion with player 1 against the computer, then a refusal, then New game
-    check("form: Salient's fields", await until(() => t.form.fields.some((f) => f.key === "red" &&
-          f.choices.some((c) => c[0] === "usb-p1"))), t.form.fields.map((f) => f.key));
-    check("form: drawn, Rush fields hidden", $("fields").children.some((e) => e.textContent === "Red, the invader") &&
+    // the setup form (Salient's options): player 1 Red against the computer, then a refusal, then New game
+    check("form: Salient's fields", await until(() => t.form.fields.some((f) => f.key === "side:usb-p1" &&
+          f.choices.some((c) => c[0] === "red"))), t.form.fields.map((f) => f.key));
+    check("form: drawn, Rush fields hidden", $("fields").children.some((e) => e.textContent === "Red lands at") &&
           !$("fields").children.some((e) => e.textContent === "Players"));
-    Object.assign(t.form.picked, { mode: "invasion", red: "usb-p1", blue: "computer", red_seat: "2" });
+    Object.assign(t.form.picked, { "side:usb-p1": "red", "side:usb-p3": "out", red_seat: "2" });
     $("start").onclick();
     check("form: Start", await until(() => $("setupmsg").textContent === "Started."), $("setupmsg").textContent);
-    check("form: sent what's shown", /!START \{"mode":"invasion","red":"usb-p1","blue":"computer","red_seat":"2","level":"7"\}\n/.test(sent()),
+    check("form: sent what's shown", /!START \{"side:usb-p1":"red","side:usb-p3":"out","red_seat":"2","level":"7"\}\n/.test(sent()),
           sent().split("\n").filter((l) => l.startsWith("!START")));
-    t.form.picked.blue = "usb-p1";
+    t.form.picked["side:usb-p3"] = "red";
     $("start").onclick();
-    check("form: the board's refusal shown", await until(() => $("setupmsg").textContent === "One controller can't play both sides."),
+    check("form: the board's refusal shown", await until(() => / are both Red\.$/.test($("setupmsg").textContent)),
           $("setupmsg").textContent);
-    t.form.picked.mode = "rush";
-    t.form.touched.add("mode");
+    t.form.picked["side:usb-p3"] = "blue";
+    t.form.touched.add("side:usb-p3");
     $("newgame").onclick();
     check("form: New game", await until(() => $("setupmsg").textContent === "Started." && sent().includes("!NEWGAME\n")));
-    check("form: picks kept when the form comes again", t.form.picked.mode === "rush");
+    check("form: picks kept when the form comes again", t.form.picked["side:usb-p3"] === "blue");
 
     $("game").value = "paint";
     $("game").onchange({ target: $("game") });

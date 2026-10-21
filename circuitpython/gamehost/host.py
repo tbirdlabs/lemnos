@@ -1,5 +1,6 @@
 # The game host: runs one game on the board. It owns the lights and the controllers; the game owns everything else.
-# The interface a game sees is in game.py; how a game is found is load_game() below.
+# The interface a game sees is in game.py; how a game is found is load_game() below. Between games (choosing one,
+# joining, its setup, play again) the host's lobby (lobby.py) has the controllers and the lights.
 #
 #   from gamehost import host
 #   host.run()                  # the game config.GAME names, forever (code.py does this at power-up)
@@ -19,6 +20,7 @@ from . import geometry
 from . import saved
 from .controls import Controls, ADDED, REMOVED
 from .lights import Lights, OFF, step_brightness
+from .lobby import Lobby
 
 
 class Board:
@@ -111,6 +113,7 @@ class Host:
         self.board.controls.game = self.name
         self.board.controls.current = self.game
         self.board.controls.brightness = "default"
+        self.lobby = Lobby(self)
 
     def switch(self, name, now):
         """Run another game from now on (the game setting). The controllers connected are handed to it. True if
@@ -159,7 +162,7 @@ class Host:
         supervisor.reload()
 
     def new_game(self, now):
-        """The game running, made afresh (the USB page's New game): back at its own setup on the board."""
+        """The game running, made afresh (the USB page's New game): back at its setup on the board."""
         cls = type(self.game)
         self.game = None                 # the old one's memory back before the new one is made
         self.board.controls.current = None
@@ -176,6 +179,7 @@ class Host:
         self.board.controls.current = self.game
         for c in self.board.controllers:
             self.game.controller_added(c, now)
+        self.lobby.reset()
 
     def apply(self, key, value, now, save=True):
         """A setting from a hub (the USB page, the radio): brightness and game are remembered through power-off
@@ -186,10 +190,13 @@ class Host:
             return None
         if key == "setup":
             try:
-                return self.game.setup(value, now)
+                msg = self.game.setup(value, now)
             except Exception as e:       # a game's bug shouldn't stop the board
                 print("%s: setup failed: %r" % (self.name, e))
                 return "The game couldn't start (%s)." % e
+            if msg is None:
+                self.lobby.started(value)
+            return msg
         if key == "brightness":
             if value == "default":
                 self.board.lights.set_brightness(None)
@@ -244,8 +251,8 @@ class Host:
             out.append(title + ":")
             for c, what in cmds:
                 out.append("  " + c + " " * (width - len(c)) + what if c else "  " + what)
-        out.append("Keys: m move, n move back, p pick, b back, w a s d up left down right; 1-6 which console "
-                   "controller.")
+        out.append("Keys: m move, n move back, p pick, b back, w a s d up left down right, q menu (the game picker); "
+                   "1-6 which console controller.")
         out.append("A command starting with one of those letters needs a / in front (the USB page adds it).")
         return "\n".join(out)
 
@@ -262,26 +269,30 @@ class Host:
             msg = self.apply(key, value, now)        # (a new game is handed the controllers connected now)
             if reply is not None:
                 reply(msg)
-        game = self.game
+        lobby = self.lobby               # (self.game, not a copy: picking a game in the lobby switches it)
         for kind, c, a in events:
             if kind == ADDED:
-                game.controller_added(c, now)
+                self.game.controller_added(c, now)
+                lobby.controller_added(c, now)
             elif kind == REMOVED:
-                game.controller_removed(c, now)
+                self.game.controller_removed(c, now)
+                lobby.controller_removed(c, now)
             else:
-                game.event(c, a, now)
+                lobby.event(c, a, now)   # the game's, while it's being played
         for text in board.controls.take_commands():
             reply = self.command(text)
             if reply is None:
                 reply = board.controls.hub_command(text)
             if reply is None:
-                reply = game.command(text, now)
+                reply = self.game.command(text, now)
             print(reply if reply is not None else "No command \"%s\" in this game." % text)
-        game.update(now)
+        if not lobby.paused:
+            self.game.update(now)
+        lobby.update(now)
         lights = board.lights
         lights.fill(OFF)
         lights.now = now
-        game.draw(lights, now)
+        self.lobby.draw(lights, now)
         lights.show()
         board.controls.shown(lights, now)
 

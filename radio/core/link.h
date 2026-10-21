@@ -3,7 +3,7 @@
 //
 //   Radio -> SCORPIO                         SCORPIO -> Radio
 //   HELLO <fw version>                       HELLO <fw version>
-//   IN p1 up|down|left|right|pick|back       STATE game salient
+//   IN p1 up|down|left|right|pick|back|menu  STATE game salient
 //   CTL p1 connected wiimote|xbox|xac|phone|gamepad   ACK <setting>
 //   CTL p1 disconnected                      GAMES clock paint salient testpattern
 //   TIME 2026-10-20T14:05:00                 PAIR  (or PAIR off)
@@ -19,7 +19,7 @@
 
 #define LINK_LINE_MAX 160               // longest line either side sends, without the newline
 
-typedef enum { ACT_NONE = 0, ACT_UP, ACT_DOWN, ACT_LEFT, ACT_RIGHT, ACT_PICK, ACT_BACK } link_action_t;
+typedef enum { ACT_NONE = 0, ACT_UP, ACT_DOWN, ACT_LEFT, ACT_RIGHT, ACT_PICK, ACT_BACK, ACT_MENU } link_action_t;
 
 typedef enum { KIND_NONE = 0, KIND_WIIMOTE, KIND_XBOX, KIND_XAC, KIND_PHONE, KIND_GAMEPAD } link_kind_t;
 

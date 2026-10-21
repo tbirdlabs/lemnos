@@ -24,7 +24,7 @@ import config
 from . import actions as A
 from .link import Link, LONGEST, SLOTS, parse_time, version as _version
 
-CAN = (A.UP, A.DOWN, A.LEFT, A.RIGHT, A.PICK, A.BACK)
+CAN = (A.UP, A.DOWN, A.LEFT, A.RIGHT, A.PICK, A.BACK, A.MENU)   # (menu from radio firmware 1.1.0)
 KINDS = {"wiimote": "Wiimote", "xbox": "Xbox", "xac": "Xbox Adaptive", "phone": "phone", "gamepad": "gamepad"}
 HELLO_EVERY_S = 3.0
 

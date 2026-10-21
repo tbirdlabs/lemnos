@@ -23,6 +23,13 @@ HOLD_S = 1.0                             # the board full of one color, before t
 WHICH = ("left", "middle", "right")
 
 
+def card(lights, now):
+    """The board's game picker shows this (gamehost/lobby.py): each row in turn red, green and blue."""
+    for r, row in enumerate(G.ROWS):
+        for t in row:
+            lights.spot(t, [COLORS[r % 3]] * 3)
+
+
 def sequence():
     """Every LED, by lights.py's logical number, in the order the pattern lights them."""
     seq = []

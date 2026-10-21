@@ -5,6 +5,11 @@ Every player plays with the same few actions: **move**, **pick** and **back**. S
 not work for another, so the board takes any mix of devices, and a game never knows which device an action came
 from. It only knows which controller sent it, and which actions that controller can send.
 
+One more action, **menu**, is the board's own: from any game, at any time, it asks for the game picker. It's made
+hard to send by accident (a wired switch held for `MENU_HOLD_S`, 3 s by default), and then the board asks again: the
+player's bar turns green with one red light, and only picking the red light leaves the game. Picking green, back,
+or waiting 30 s returns to the game, which waited meanwhile. Games never see menu.
+
 Controllers are listed in `circuitpython/config.py`. Four kinds of source feed them:
 
 - **Wired inputs** on the SCORPIO's free pins (see [wiring.md](wiring.md)): `gamehost/inputs.py`.
@@ -23,10 +28,10 @@ controllers and actions ([making-games.md](making-games.md)).
 
 | Type | Wiring | Gives | Settings |
 | --- | --- | --- | --- |
-| `button` | One switch to ground | its `does` action on press | `hold`: a second action for a long press (`hold_s`, default 0.8 s) |
+| `button` | One switch to ground | its `does` action on press; menu when held `MENU_HOLD_S` | `hold`: a second action for a long press (`hold_s`, default 0.8 s) |
 | `encoder` | Rotary encoder on two consecutive GPIOs | move (clockwise), move back | `reverse`, `divisor` |
-| `scan` | One switch to ground | pick; the board steps (move) every `every` seconds | `every` (default 1.5 s), `hold` |
-| `ladder` | Several switches on one analog pin through resistors | each band's action | `bands`: (low V, high V, action) |
+| `scan` | One switch to ground | pick; the board steps (move) every `every` seconds; menu when held `MENU_HOLD_S` | `every` (default 1.5 s), `hold` |
+| `ladder` | Several switches on one analog pin through resistors | each band's action; menu when any is held `MENU_HOLD_S` | `bands`: (low V, high V, action) |
 
 A controller is a list of inputs plus a seat: `{"name": ..., "seat": 1, "inputs": [...]}`. `seat` is the side it
 sits at (1–6, clockwise from the bottom), or `None` if its player chooses a side when joining.
@@ -60,16 +65,17 @@ The radio co-processor (`radio/` in this repo; setup and flashing in [radio/READ
 the controllers that need a radio: Bluetooth gamepads, and phones over WiFi. It sorts them into **player slots**
 p1 to p6, and each slot is one controller to the game (`radio-p1`, named like "player 1 (Xbox)"), whatever device
 is in it. A controller keeps its slot when it reconnects, and the slots can be rearranged on the radio's web page.
-Every radio controller sends only up, down, left, right, pick and back; the game never learns the device.
+Every radio controller sends only up, down, left, right, pick, back and (from radio firmware 1.1.0) menu; the game
+never learns the device.
 
-| Controller | Moves | Pick | Back |
-| --- | --- | --- | --- |
-| Wiimote, upright in one hand (the default) | D-pad | A | B (the trigger) |
-| Wiimote, sideways in two hands (chosen per Wiimote on the radio's page) | D-pad | 2 | 1 |
-| Xbox One (model 1708, current firmware) or Series | D-pad or left stick | A | B |
-| Xbox Adaptive Controller | D-pad, or switches in its 3.5 mm jacks set to D-pad | A | B |
-| Phone (the radio's web page `/pad`) | the on-screen D-pad | PICK | BACK |
-| Other Bluetooth gamepads Bluepad32 knows | D-pad or left stick | A (bottom face button) | B (right) |
+| Controller | Moves | Pick | Back | Menu |
+| --- | --- | --- | --- | --- |
+| Wiimote, upright in one hand (the default) | D-pad | A | B (the trigger) | Home |
+| Wiimote, sideways in two hands (chosen per Wiimote on the radio's page) | D-pad | 2 | 1 | Home |
+| Xbox One (model 1708, current firmware) or Series | D-pad or left stick | A | B | Xbox button or Menu (Start) |
+| Xbox Adaptive Controller | D-pad, or switches in its 3.5 mm jacks set to D-pad | A | B | Xbox button or Menu |
+| Phone (the radio's web page `/pad`) | the on-screen D-pad | PICK | BACK | Menu (top right) |
+| Other Bluetooth gamepads Bluepad32 knows | D-pad or left stick | A (bottom face button) | B (right) | Home / PS or Start |
 
 A held direction repeats, the same on the D-pad and the stick: once at once, again after 0.4 s, then every 0.16 s.
 The stick has a deadzone and doesn't flicker between two directions on a diagonal. The Adaptive Controller's jacks
@@ -114,11 +120,12 @@ next time. A board answering with anything other than version 1 in byte 0 is ign
 | 7 | left |
 | 8 | right |
 | 9 | This pad is a single switch (no back); send once when it connects |
+| 10 | menu (back to the game picker; the board asks first): a long press, or a Home / Start button |
 | 15 | This pad disconnected (the game hears `controller_removed`; the pad's next event brings it back) |
-| 0, 10–14 | Reserved |
+| 0, 11–14 | Reserved |
 
 How a board maps its buttons is up to the board. For a gamepad, the suggested mapping is: D-pad or left stick =
-up/down/left/right, A = pick, B = back, and the shoulder buttons = move back / move.
+up/down/left/right, A = pick, B = back, the shoulder buttons = move back / move, and Home or Start = menu.
 
 For a single switch on a board: send code 9 once when it connects, then send move on a timer (the scan) and pick
 when the switch closes. Code 9 tells the game the pad has no back, so the game adds its way-out stops.

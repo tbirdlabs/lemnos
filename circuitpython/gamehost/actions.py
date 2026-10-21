@@ -8,6 +8,9 @@
 #   pick        choose what the cursor is on
 #   back        go back / cancel
 #   up, down, left, right   a D-pad or joystick: move the cursor directly
+#   menu        back to the game picker, from any game: a wired button held MENU_HOLD_S (config.py), a console's q,
+#               the USB page's Menu. The board handles it (it asks first: pick the red light on your bar); a game
+#               never sees it
 #
 # Not every controller has every action. A single switch has only move (the board scans for it) and pick, so a game
 # must offer another way to do anything it would normally put on back. Controller.can says what a controller has.
@@ -20,7 +23,8 @@ UP = "up"
 DOWN = "down"
 LEFT = "left"
 RIGHT = "right"
+MENU = "menu"
 
-ALL = (MOVE, MOVE_BACK, PICK, BACK, UP, DOWN, LEFT, RIGHT)
+ALL = (MOVE, MOVE_BACK, PICK, BACK, UP, DOWN, LEFT, RIGHT, MENU)
 ARROWS = (UP, DOWN, LEFT, RIGHT)
 ONE_SWITCH = (MOVE, PICK)          # the least a controller can have

@@ -8,6 +8,11 @@
 #       def update(self, now): ...                        # timers, animations, computer players
 #       def draw(self, lights, now): ...                  # light the board for this frame
 #
+# A game with a setup (options() below) is set up on the board by the host's lobby (lobby.py), the same way for every
+# game: choosing the game, joining, its fields, starting, and after the game playing again or going back. The game
+# only lists its fields, starts from what was chosen (setup), may draw a preview of the choices, and says when a game
+# is over (finished). A game with no setup just runs, from when it's made.
+#
 # Every frame (config.FPS, 40 a second by default) the host:
 #   1. tells the game about controllers that arrived or left   controller_added / controller_removed
 #   2. hands it every action since the last frame, in order    event
@@ -65,23 +70,49 @@ class Game:
         """A controller went away (an I2C gamepad disconnected). It sends nothing until controller_added again.
         A game might let the computer take over that player, or pause."""
 
-    # ---- Optional: setting up a game from the USB page (Salient.html) instead of on the board ----
-    # The page shows options() as a form with a Start button, and calls setup() with what was chosen. Its New game
-    # button needs nothing from the game: the host makes the game afresh, so it's back at its own setup on the board.
+    # ---- Optional: a setup, on the board (the lobby) and on the USB page (Salient.html) ----
+    # The lobby walks people through options() on the board; the page shows it as a form with a Start button. Both
+    # call setup() with what was chosen. Until then the game is idle (the lobby draws, with preview()); once
+    # finished() says it's over, the lobby has the controllers again: pick plays again (setup() with the same
+    # choices), back returns to the setup. The page's New game makes the game afresh, back at its setup.
 
-    def options(self):
-        """The fields of the page's setup form, as a list of dicts:
+    def options(self, choices=None):
+        """The setup's fields, as a list of dicts:
             key       the field's name in setup()'s choices
             label     what people see
-            choices   [(value, label), ...]; values are strings. Controllers can be choices too (their .id as the
-                      value): the page asks again whenever controllers come or go
+            choices   [(value, label), ...]; values are strings. A third item, a color (r, g, b), is how the board
+                      shows that choice on a bar. Controllers can be choices too (their .id as the value): the page
+                      asks again whenever controllers come or go
             value     the one chosen to begin with
-            show      optional {key: [values]}: show the field only while those fields have one of those values
-            note      optional: a line under the field
-        [] (the default): the game has no setup form; the page offers only New game."""
+            show      optional {key: [values]}: (the page) show the field only while those fields have one of those
+                      values
+            note      optional: a line under the field (the page)
+          and for the board's lobby:
+            player    a controller's id: this field is that player's own (their seat, color, side...), set by them
+                      on their own bar after they join. Give each connected controller its own copy (key "seat:" +
+                      its id, say)
+            out       (a player's field) its value for "not playing"; a player who hasn't joined has it
+            unique    (a player's field) a name: no two players have the same value in fields of that name
+            seat      (a player's field) True: its value is the seat (1-6) where that player's bar is
+            bar       "fill": the bar lights as many as the value (how many, a level), not a light per choice
+            color     the bar's color for a "fill" field (default white)
+            board     False: not shown on the board; its value is whatever options() gives (worked out from the
+                      other choices)
+        choices: what's chosen so far on the board ({key: value}), so the form can follow it (fewer players to
+        choose from once more have joined, a field that only matters for one human); None from the page.
+        [] (the default): the game has no setup; it runs as soon as it's made, and the page offers only New game."""
         return []
 
     def setup(self, choices, now):
-        """Start a game as set up on the page. choices: {key: value} for each field options() gave (strings).
-        Return None if it started, or a message to show on the page if it can't (it's changed nothing then)."""
+        """Start a game as set up on the board or the page. choices: {key: value} for each field options() gave
+        (strings). Return None if it started, or a message saying why it can't (it's changed nothing then)."""
         return "This game has no setup here."
+
+    def preview(self, lights, now, lobby):
+        """Draw the setup screen as chosen so far (the lobby draws the bars of players setting a field over it).
+        lobby.choices ({key: value}), lobby.joined (controllers, the leader first), lobby.editing(controller) (the
+        key it's setting, "start", or None when it's done or not joined)."""
+
+    def finished(self):
+        """True once a game is over and its last picture is up (any last rolls shown): the lobby takes over."""
+        return False

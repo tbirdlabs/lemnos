@@ -403,26 +403,33 @@ def switching():
 
 
 def salient_setup():
-    """Salient's form and setup(): Invasion with any mix of controllers and the computer (Island Rush is its own
-    game now: tools/test_rush.py)."""
+    """Salient's form and setup(): a side for each controller (or sitting out), the computer on any side no one
+    takes (Island Rush is its own game now: tools/test_rush.py)."""
     from games.salient.game import Game as Salient
     ctl = Controls(hardware=False)
     a = ctl.get("usb-p1", "player 1 (USB)", None, ())
     b = ctl.get("wired0", "wired", 4, ())
     g = Salient(host.Board(Lights(), ctl))
     o = {f["key"]: f for f in g.options()}
-    check("salient: fields", list(o) == ["red", "blue", "red_seat", "level"], list(o))
-    check("salient: controllers are choices", [v for v, t in o["red"]["choices"]] == ["computer", "usb-p1", "wired0"])
-    base = {"mode": "invasion", "red": "usb-p1", "blue": "computer", "red_seat": "3", "level": "5"}
-    check("salient: invasion starts", g.setup(base, 0.0) is None and g.phase == "play")
+    check("salient: fields", list(o) == ["side:usb-p1", "side:wired0", "red_seat", "level"], list(o))
+    check("salient: a side each, the first Red", [ch[0] for ch in o["side:usb-p1"]["choices"]] == ["out", "red", "blue"]
+          and o["side:usb-p1"]["value"] == "red" and o["side:wired0"]["value"] == "out")
+    check("salient: the page's form keeps only its parts", usbpage._field(o["side:usb-p1"])["choices"][1] ==
+          ["red", "Red, the invader"] and "player" not in usbpage._field(o["side:usb-p1"]))
+    base = {"side:usb-p1": "red", "side:wired0": "out", "red_seat": "3", "level": "5"}
+    check("salient: invasion starts", g.setup(base, 0.0) is None and g.st is not None)
     check("salient: red at seat 3, blue opposite, the computer blue",
           [(s.seat, s.ctrl) for s in g.seats] == [(3, a), (6, None)] and g.level == 5, [(s.seat, s.ctrl) for s in g.seats])
-    check("salient: two humans", g.setup(dict(base, blue="wired0"), 0.0) is None and g.seats[1].ctrl is b)
-    check("salient: computer against computer", g.setup(dict(base, red="computer"), 0.0) is None and
+    check("salient: two humans", g.setup(dict(base, **{"side:wired0": "blue"}), 0.0) is None and g.seats[1].ctrl is b)
+    check("salient: computer against computer", g.setup(dict(base, **{"side:usb-p1": "out"}), 0.0) is None and
           g.seats[0].ctrl is None and g.seats[1].ctrl is None)
-    check("salient: one controller both sides", g.setup(dict(base, blue="usb-p1"), 0.0) == "One controller can't play both sides.")
-    check("salient: a controller that's gone", g.setup(dict(base, red="i2c-30-1"), 0.0) is not None)
-
+    check("salient: two on one side", g.setup(dict(base, **{"side:wired0": "red"}), 0.0) ==
+          "player 1 (USB) and wired are both Red.")
+    o = {f["key"]: f for f in g.options({"side:usb-p1": "out", "side:wired0": "blue"})}
+    check("salient: on the board, Red lands opposite a lone Blue", o["red_seat"]["value"] == "1" and "level" in o,
+          o["red_seat"]["value"])
+    o = {f["key"]: f for f in g.options({"side:usb-p1": "red", "side:wired0": "blue"})}
+    check("salient: no difficulty with two players", "level" not in o, list(o))
 
 if __name__ == "__main__":
     hello()

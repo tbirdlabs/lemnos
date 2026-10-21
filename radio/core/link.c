@@ -3,12 +3,12 @@
 #include <stdio.h>
 #include <string.h>
 
-static const char* const ACTIONS[] = {"", "up", "down", "left", "right", "pick", "back"};
+static const char* const ACTIONS[] = {"", "up", "down", "left", "right", "pick", "back", "menu"};
 static const char* const KINDS[] = {"", "wiimote", "xbox", "xac", "phone", "gamepad"};
 static const char* const LABELS[] = {"", "Wiimote", "Xbox", "Xbox Adaptive", "Phone", "Gamepad"};
 
 const char* link_action_name(link_action_t a) {
-    return a > ACT_NONE && a <= ACT_BACK ? ACTIONS[a] : "";
+    return a > ACT_NONE && a <= ACT_MENU ? ACTIONS[a] : "";
 }
 
 const char* link_kind_name(link_kind_t k) {

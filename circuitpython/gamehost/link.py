@@ -15,7 +15,7 @@ from . import actions as A
 from . import walltime
 
 ACTIONS = {"up": A.UP, "down": A.DOWN, "left": A.LEFT, "right": A.RIGHT, "pick": A.PICK, "back": A.BACK,
-           "move": A.MOVE, "move_back": A.MOVE_BACK}
+           "move": A.MOVE, "move_back": A.MOVE_BACK, "menu": A.MENU}
 SLOTS = 6
 LONGEST = 200                   # a line longer than this is noise
 

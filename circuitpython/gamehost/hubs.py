@@ -4,7 +4,8 @@
 #   "i2c"       outboard controller boards on the STEMMA QT I2C bus (docs/controllers.md, protocol v1): every
 #               (board, pad) is its own controller, such as each Bluetooth gamepad on an ESP32
 #   "console"   the USB serial console as up to 6 controllers, for testing: m (move), n (move back), p (pick),
-#               b (back), w/a/s/d (up/left/down/right); a digit 1-6 switches which controller the keys belong to.
+#               b (back), w/a/s/d (up/left/down/right), q (menu: the game picker); a digit 1-6 switches which
+#               controller the keys belong to.
 #               It also takes typed commands for the game (Game.command): a line that starts with any other letter
 #               (or with "/") up to Enter, such as "time 14:32" for the clock. A line starting with "!" is from the
 #               USB page (Salient.html; usbpage.py), which works through this hub.
@@ -35,7 +36,7 @@ def i2c_bus():
 
 # I2C protocol v1 (docs/controllers.md): an 8-byte read returns [0x10 | count, event, ...]; each event byte is
 # pad << 4 | code.
-I2C_CODES = {1: A.MOVE, 2: A.MOVE_BACK, 3: A.PICK, 4: A.BACK, 5: A.UP, 6: A.DOWN, 7: A.LEFT, 8: A.RIGHT}
+I2C_CODES = {1: A.MOVE, 2: A.MOVE_BACK, 3: A.PICK, 4: A.BACK, 5: A.UP, 6: A.DOWN, 7: A.LEFT, 8: A.RIGHT, 10: A.MENU}
 I2C_ONE_SWITCH = 9        # the pad has only a switch (the board scans for it): no back
 I2C_GONE = 15             # the pad disconnected
 
@@ -90,7 +91,7 @@ class I2CBoards:
 
 
 CONSOLE_KEYS = {"m": A.MOVE, "n": A.MOVE_BACK, "p": A.PICK, "b": A.BACK,
-                "w": A.UP, "s": A.DOWN, "a": A.LEFT, "d": A.RIGHT}
+                "w": A.UP, "s": A.DOWN, "a": A.LEFT, "d": A.RIGHT, "q": A.MENU}
 
 
 class Console:

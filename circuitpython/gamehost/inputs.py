@@ -7,9 +7,11 @@
 # To add your own, write one (in its own file is fine) and name it in config.py as "module.Class" (plugins.py),
 # or add it to INPUTS below.
 
+import config
 from . import actions as A
 
 DEBOUNCE_S = 0.02
+MENU_HOLD_S = getattr(config, "MENU_HOLD_S", 3.0)   # any switch held this long: menu (back to the game picker)
 
 
 def _pin(name):
@@ -25,18 +27,19 @@ def _switch(name):
 
 
 class Button:
-    """One switch to ground. Press = `does`; with `hold`, a press held hold_s or longer gives `hold` instead.
-    spec: pin, does (default pick), hold, hold_s (default 0.8)."""
+    """One switch to ground. Press = `does`; with `hold`, a press held hold_s or longer gives `hold` instead. Held
+    MENU_HOLD_S, it also gives menu (whatever it gave first). spec: pin, does (default pick), hold, hold_s (0.8)."""
 
     def __init__(self, spec):
         self.io = _switch(spec["pin"])
         self.does = spec.get("does", A.PICK)
         self.hold = spec.get("hold")
         self.hold_s = spec.get("hold_s", 0.8)
-        self.can = {self.does} | ({self.hold} if self.hold else set())
+        self.can = {self.does, A.MENU} | ({self.hold} if self.hold else set())
         self.down = False
         self.changed = 0.0
         self.fired = False
+        self.menu = False
 
     def pressed(self):
         return not self.io.value                 # pulled up; the switch shorts it to ground
@@ -48,6 +51,7 @@ class Button:
             self.changed = now
             if pressed:
                 self.fired = False
+                self.menu = False
                 if not self.hold:
                     emit(self.does)
             elif self.hold and not self.fired:
@@ -55,6 +59,10 @@ class Button:
         elif self.down and self.hold and not self.fired and now - self.changed >= self.hold_s:
             self.fired = True
             emit(self.hold)
+        elif self.down and not self.menu and now - self.changed >= MENU_HOLD_S:
+            self.menu = True
+            self.fired = True
+            emit(A.MENU)
 
 
 class Encoder:
@@ -108,10 +116,11 @@ class Ladder:
         import analogio
         self.adc = analogio.AnalogIn(_pin(spec["pin"]))
         self.bands = spec["bands"]
-        self.can = set(b[2] for b in self.bands)
+        self.can = set(b[2] for b in self.bands) | {A.MENU}
         self.seen = None
         self.held = None
         self.since = 0.0
+        self.menu = False
 
     def poll(self, now, emit):
         v = self.adc.value * 3.3 / 65535
@@ -125,8 +134,12 @@ class Ladder:
             self.since = now
         elif hit != self.held and now - self.since >= DEBOUNCE_S:
             self.held = hit
+            self.menu = False
             if hit:
                 emit(hit)
+        elif hit and not self.menu and now - self.since >= MENU_HOLD_S:
+            self.menu = True                         # any switch on it held long: menu
+            emit(A.MENU)
 
 
 INPUTS = {"button": Button, "encoder": Encoder, "scan": Scan, "ladder": Ladder}

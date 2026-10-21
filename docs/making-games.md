@@ -33,7 +33,8 @@ class Game(BaseGame):
 Put `GAME = "hello"` in `config.py` and it runs at power-up. A bigger game can be a folder, `games/NAME/`, with its
 `Game` class in `game.py` and anything else it needs beside it (Salient is `games/salient/`).
 
-Every frame (40 a second) the host:
+Every frame (40 a second) the host (while the game is being played; between games the lobby has the controllers
+and the lights, see [A setup](#a-setup-on-the-board-and-the-usb-page-optional)):
 
 1. tells the game about controllers that arrived or left: `controller_added(controller, now)`,
    `controller_removed(controller, now)`
@@ -217,38 +218,75 @@ nice to have, never required.
 first time they're used, and gamepads can disconnect. Decide what your game does then: hand the player to the
 computer, pause, or ignore it.
 
-## Setting up from the USB page (optional)
+## A setup, on the board and the USB page (optional)
 
-The USB page (`Salient.html` on the CIRCUITPY drive) has a **New game** box. Its **New game** button needs nothing
-from your game: the host makes your `Game` afresh, so it starts at its own setup on the board. To also let people
-set a game up there and press **Start**, give your game two more methods:
+A game with no setup (paint, the clock) just runs from the moment it's made (menu still leaves it). A game that needs one (who plays,
+which side, how many, how hard) doesn't build its own setup screens. It lists its setup as fields, and the board's
+**lobby** (`gamehost/lobby.py`) walks people through them, the same way for every game:
+
+- **Joining:** anyone presses pick to join. Each player sets their own fields (a seat, a color, a side) on their
+  own bar: move steps through the choices, pick takes one, back goes back a field, and back on the first field
+  leaves. The first to join leads: after their own fields they set the game's other fields, then their bar
+  breathes green and pick starts the game. With nobody joined, back opens the **game picker**: the island shows
+  each game's card, move steps, pick plays that game.
+- **During the game** your game has the controllers, as before.
+- **When it's over** (your `finished()` says so) the lobby takes over again: pick plays again with the same choices,
+  back returns to the setup with everyone still in it, so anyone can change their seat or color before the next one.
+- A controller without back (one switch) gets a way-back stop after the last choice of every list, its bar dim red.
+- **Menu**, from any game at any time, even one with no setup: a wired switch held 3 s, the console's `q`, the USB
+  page's Menu. The board pauses your game (no `update`) and asks on the player's bar, green with one red light; only
+  picking the red light opens the game picker, and anything else returns to your game as it was. Your game never sees
+  the menu action, so it needs nothing for it.
+
+The USB page shows the same fields as a form with a **Start** button, and its **New game at the board** makes your
+`Game` afresh, back at its setup on the board. Four methods:
 
 ```python
-    def options(self):
-        """The form: one dict per field."""
-        who = [("computer", "The computer")] + [(c.id, c.name) for c in self.board.controllers]
-        return [
-            {"key": "size", "label": "Board size", "value": "big",
-             "choices": [("big", "Big"), ("small", "Small")]},
-            {"key": "player", "label": "Who plays", "choices": who, "value": "computer"},
-            {"key": "speed", "label": "Speed", "choices": [("1", "Slow"), ("2", "Fast")], "value": "1",
-             "show": {"size": ["big"]}, "note": "Only on the big board."},
-        ]
+    def options(self, choices=None):
+        """The fields. choices: what's chosen so far on the board (None from the page)."""
+        out = [{"key": "speed", "label": "Speed", "value": "1", "bar": "fill",
+                "choices": [("1", "Slow"), ("2", "Medium"), ("3", "Fast")]}]
+        for c in self.board.controllers:              # each controller's own fields
+            out.append({"key": "seat:" + c.id, "label": c.name, "player": c.id, "out": "out",
+                        "unique": "seat", "seat": True, "value": str(c.seat or 1),
+                        "choices": [("out", "Sits out")] + [(str(x), "Seat %d" % x) for x in range(1, 7)]})
+        return out
 
     def setup(self, choices, now):
-        """choices: {"size": "big", "player": "usb-p1", ...}, strings, only the fields that were shown."""
-        if choices.get("player") not in ("computer",) + tuple(c.id for c in self.board.controllers):
-            return "That controller has gone; pick again."      # shown on the page; nothing started
-        ...                                                      # start the game
-        return None                                              # it started
+        """choices: {"speed": "2", "seat:wired0": "4", ...}, strings."""
+        ...                                           # start the game
+        return None                                   # it started (or a message saying why not: nothing started)
+
+    def preview(self, lights, now, lobby):
+        """Draw the setup as chosen so far: lobby.choices, lobby.joined, lobby.editing(controller)."""
+
+    def finished(self):
+        """True once the game is over and its last picture is up."""
+        return self.over
 ```
 
-Each field is a dropdown: `choices` are `(value, label)` with string values, `value` is the one chosen to begin
-with, `show` hides it unless other fields have those values, and `note` is a line under it. Controllers make good
-choices (their `.id`): the page asks for the form again whenever one comes or goes, and keeps what people already
-picked. `setup()` is only ever called with what `options()` offered, but check anyway: a controller can leave
-between the two. Salient's (`games/salient/game.py`) has Invasion or Island Rush, who plays each side, where Red
-lands, the seats for Island Rush and the difficulty.
+Each field is a list of choices: `(value, label)` with string values, or `(value, label, color)` to show the choice
+in that color on the bar. `value` is the one chosen to begin with. For the board:
+
+| Key | What it does |
+| --- | --- |
+| `player` | a controller's id: this is that player's own field, set on their own bar after they join. Give every connected controller its own copy, keyed by its id |
+| `out` | (a player's field) the value for "not playing"; players who haven't joined have it |
+| `unique` | (a player's field) a name: no two players have the same value in fields with that name (seats, colors) |
+| `seat` | (a player's field) `True`: the value is the seat where that player's bar is |
+| `bar` | `"fill"`: the bar lights as many as the value (how many, a level), not a light per choice |
+| `color` | the bar's color for a `"fill"` field |
+| `board` | `False`: not shown on the board; the value is whatever `options()` works out from the other choices |
+
+and for the page, `show` (`{key: [values]}`: show the field only while those fields have one of those values) and
+`note` (a line under it). The lobby calls `options(choices)` again whenever something changes, so the form can follow
+what's chosen: fewer players to choose from once more have joined, a difficulty only when one person plays the
+computer. `setup()` gets every field's value, also from the page, so check them: a controller can leave in between.
+Island Rush (`games/rush/game.py`) and Salient (`games/salient/game.py`) are full examples.
+
+**A card for the game picker:** a picture of your game, drawn while people choose. In a one-file game, a
+module-level `card(lights, now)`; in a folder, `card.py` with `draw(lights, now)`, so the picker can show it without
+loading the whole game. Without one, the picker shows a plain card.
 
 ## Trying a game
 
@@ -270,8 +308,9 @@ h.frame(0.0)                             # one frame at t = 0 s; look at h.game,
 the board's controls.
 
 On the board, set `GAME` in `config.py`. The USB serial console works as up to 6 controllers: type m (move), n (move
-back), p (pick), b (back), w/a/s/d (arrows), and a digit 1-6 to switch controllers. A line that starts with any other
-letter (or with `/`) is a command for the game, sent with Enter: `time 14:32` for the clock.
+back), p (pick), b (back), w/a/s/d (arrows), q (menu: back to the game picker), and a digit 1-6 to switch
+controllers. A line that starts with any other letter (or with `/`) is a command for the game, sent with Enter:
+`time 14:32` for the clock.
 
 ## Changing the hardware instead
 

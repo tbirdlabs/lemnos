@@ -1,7 +1,8 @@
 # Desktop test of Island Rush (games/rush): the engine's rules, and the board's game through the host's interfaces
 # with a fake clock. Human players are driven only by controller actions (three buttons with row-then-spot
 # scanning, one switch with way-out stops, or a D-pad), each wanting the move the computer player would choose;
-# every move must land as picked, and games must end with a winner. Also setup on the board and from the USB page.
+# every move must land as picked, and games must end with a winner. Also setup on the board (the host's lobby), from
+# the USB page, and what happens after a game.
 #   py -3 tools/test_rush.py
 
 import os
@@ -11,7 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 from gamehost import geometry, host
 from gamehost.controls import Controls
-from gamehost.lights import OFF, Lights
+from gamehost.lights import Lights
 from games.rush import ai as AI
 from games.rush import engine as E
 from games.rush import game as G
@@ -29,25 +30,21 @@ def check(name, ok, detail=""):
 
 
 class Clock:
-    def __init__(self, game, lights):
+    """The host's frames on a fake clock."""
+
+    def __init__(self, h):
         self.t = 100.0
-        self.game = game
-        self.lights = lights
-        self.n = 0
+        self.h = h
 
     def tick(self, k=1):
         for _ in range(k):
             self.t += DT
-            self.game.update(self.t)
-            self.n += 1
-            if self.n % 3 == 0:
-                self.lights.fill(OFF)
-                self.game.draw(self.lights, self.t)
-                self.lights.show()
+            self.h.frame(self.t)
 
 
 def send(g, clk, c, a):
-    g.event(c, a, clk.t)
+    """c presses a, through the host (g: the game, for the drivers' sake)."""
+    clk.h.board.controls.feed(c, a)
     clk.tick()
 
 
@@ -108,8 +105,8 @@ DRIVERS = {"scan": drive_scan, "switch": drive_scan, "arrows": drive_arrows}
 
 def new_ui():
     b = host.Board(Lights(), Controls(hardware=False))
-    g = G.Game(b)
-    return b, g, Clock(g, b.lights)
+    h = host.Host(G.Game, b, name="rush")
+    return b, h, Clock(h)
 
 
 def play_through(name, g, clk, drivers, seed):
@@ -322,8 +319,11 @@ def engine_rules():
 
 
 def board_setup(name, humans, total, seed):
-    """humans: [(controller seat, corner seat to take, driver kind)]; the first to join sets the total."""
-    b, g, clk = new_ui()
+    """humans: [(controller seat, corner seat to take, driver kind)], joining in that order; the first to join sets
+    the total. Through the host's lobby: join, a corner, a color, (the leader) how many, start; after the game, play
+    again, then back to the setup."""
+    b, h, clk = new_ui()
+    lob = h.lobby
     ctls = []
     drivers = {}
     for k, (cseat, side, kind) in enumerate(humans):
@@ -331,57 +331,198 @@ def board_setup(name, humans, total, seed):
         ctls.append(c)
         drivers[c.id] = DRIVERS[kind]
     clk.tick(5)
+    check(name + ": setup first", lob.state == "setup", lob.state)
     for k, c in enumerate(ctls):
-        send(g, clk, c, "pick")                      # join
-        j = g.joiner(c)
+        send(None, clk, c, "pick")                   # join
+        key = "seat:" + c.id
+        check(name + ": joined, choosing a corner", lob.editing(c) == key, lob.editing(c))
         for _ in range(8):
-            if j.seat == humans[k][1]:
+            if lob.choices[key] == str(humans[k][1]):
                 break
-            send(g, clk, c, "move")
-        check(name + ": corner of seat %d" % humans[k][1], j.seat == humans[k][1], j.seat)
-        send(g, clk, c, "pick")
-        send(g, clk, c, "move")                      # a different color
-        send(g, clk, c, "pick")
-    lj = g.joiner(ctls[0])
-    check(name + ": the first player sets the total", lj.stage == "total", lj.stage)
+            send(None, clk, c, "move")
+        check(name + ": corner of seat %d" % humans[k][1], lob.choices[key] == str(humans[k][1]), lob.choices[key])
+        send(None, clk, c, "pick")
+        check(name + ": then a color", lob.editing(c) == "color:" + c.id, lob.editing(c))
+        send(None, clk, c, "move")                   # a different color
+        send(None, clk, c, "pick")
+    check(name + ": the first player sets the total", lob.editing(ctls[0]) == "players", lob.editing(ctls[0]))
+    check(name + ": the others wait", all(lob.editing(c) is None for c in ctls[1:]))
     for _ in range(8):
-        if g.total == total:
+        if lob.choices["players"] == str(total):
             break
-        send(g, clk, ctls[0], "move")
-    check(name + ": total %d" % total, g.total == total, g.total)
-    send(g, clk, ctls[0], "pick")
-    check(name + ": started", g.phase == "play", g.phase)
+        send(None, clk, ctls[0], "move")
+    check(name + ": total %d" % total, lob.choices["players"] == str(total), lob.choices["players"])
+    send(None, clk, ctls[0], "pick")
+    check(name + ": then start", lob.editing(ctls[0]) == "start", lob.editing(ctls[0]))
+    send(None, clk, ctls[0], "pick")
+    check(name + ": started", lob.state == "play", lob.state)
+    g = h.game
     seats = [x.seat for x in g.seats]
-    check(name + ": everyone at their corner", all(h[1] in seats for h in humans) and len(seats) == total, seats)
+    check(name + ": everyone at their corner", all(x[1] in seats for x in humans) and len(seats) == total, seats)
     check(name + ": colors differ", len(set(x.color for x in g.seats)) == total)
     play_through(name, g, clk, drivers, seed)
     st = g.st
-    send(g, clk, ctls[0], "pick")
-    check(name + ": back to setup", g.phase == "join")
+    clk.tick()
+    check(name + ": the lobby has it at the end", lob.state == "end", lob.state)
+    lineup = [(x.seat, x.color, x.ctrl) for x in g.seats]
+    send(None, clk, ctls[-1], "pick")
+    check(name + ": pick plays again", lob.state == "play" and g.st is not st and not g.st.over and
+          [(x.seat, x.color, x.ctrl) for x in g.seats] == lineup)
+    g.st.over = True                                 # (end it at once)
+    g.busy = False
+    g.timer_at = None
+    clk.tick()
+    c = ctls[0]
+    if "back" in c.can:
+        send(None, clk, c, "back")
+    else:
+        send(None, clk, c, "move")                   # the way-back stop
+        check(name + ": a way-back stop", lob.stop.get(c.id) and lob.state == "end")
+        send(None, clk, c, "pick")
+    check(name + ": back to the setup, everyone in, the leader on start", lob.state == "setup" and
+          lob.joined == ctls and lob.editing(ctls[0]) == "start" and all(lob.editing(x) is None for x in ctls[1:]),
+          (lob.state, lob.joined, lob.editing(ctls[0])))
+    check(name + ": the same choices", lob.choices["players"] == str(total) and
+          all(lob.choices["seat:" + c.id] == str(x[1]) for c, x in zip(ctls, humans)))
     print("%-34s seats %s, winner seat %s, round %d, %d moves" % (name, seats, g.seats[st.winner].seat,
                                                                   st.round, len(st.log)))
 
 
+def lobby_moves():
+    """Going back in the setup: a field at a time, leaving, the game picker and back."""
+    b, h, clk = new_ui()
+    lob = h.lobby
+    a = b.controls.get("a", "a", 1, CAN["scan"])
+    s = b.controls.get("s", "switch", 4, CAN["switch"])
+    clk.tick(2)
+    send(None, clk, a, "pick")
+    send(None, clk, s, "pick")
+    check("lobby: two joined, a leads", lob.joined == [a, s] and lob.editing(s) == "seat:s")
+    check("lobby: seats can't clash", "1" not in lob.allowed(lob.field("seat:s")))
+    send(None, clk, a, "back")
+    check("lobby: back on the first field leaves", lob.joined == [s] and lob.choices["seat:a"] == "out")
+    check("lobby: the next one leads", lob.leader() is s)
+    for _ in range(7):
+        send(None, clk, s, "move")
+        if lob.stop.get("s"):
+            break
+    check("lobby: a switch reaches its way-back stop", lob.stop.get("s"))
+    send(None, clk, s, "pick")
+    check("lobby: ... and it goes back (leaves)", lob.joined == [], lob.joined)
+    send(None, clk, a, "back")
+    check("lobby: back with nobody in opens the game picker", lob.state == "games" and lob.chooser is a)
+    check("lobby: on this game", lob.names[lob.index] == "rush", lob.names)
+    send(None, clk, a, "move")
+    check("lobby: the picker shows each game's card", lob.card is not None and lob.card[1] is not None, lob.card)
+    send(None, clk, a, "back")
+    check("lobby: back to the setup", lob.state == "setup" and h.name == "rush")
+    check("lobby: the cards' code let go", "games." + lob.names[(lob.names.index("rush") + 1) % len(lob.names)]
+          not in sys.modules or lob.names[(lob.names.index("rush") + 1) % len(lob.names)] == "rush")
+    send(None, clk, a, "back")
+    while lob.names[lob.index] != "paint":
+        send(None, clk, a, "move")
+    send(None, clk, a, "pick")
+    check("lobby: picking paint plays it, no setup", h.name == "paint" and lob.state == "play", (h.name, lob.state))
+
+
+def menu():
+    """Menu from the middle of a game: it asks first (the asker picks the red light on a green bar), the game waits
+    meanwhile; picking green, back or waiting goes back to it as it was. The picker's back returns to the game, and
+    this game again is its setup. From a game with no setup (paint), menu is the only way out."""
+    b, h, clk = new_ui()
+    lob = h.lobby
+    a = b.controls.get("a", "a", 1, CAN["arrows"])
+    other = b.controls.get("o", "other", 4, CAN["arrows"])
+    clk.tick(2)
+    h.apply("setup", {"players": "3", "seat:a": "1", "seat:o": "out"}, clk.t)
+    g = h.game
+    clk.tick(200)                                    # the computers get going
+    send(None, clk, a, "menu")
+    check("menu: asks first", lob.state == "confirm" and lob.asker is a and lob.red != lob.at_light, lob.state)
+    moves = g.st.moves
+    clk.tick(200)
+    check("menu: the game waits", g.st.moves == moves and lob.state == "confirm")
+    send(None, clk, other, "pick")
+    check("menu: only the asker answers", lob.state == "confirm")
+    send(None, clk, a, "pick")                       # on green
+    check("menu: green goes back to the game", lob.state == "play" and g.st.moves == moves)
+    send(None, clk, a, "menu")
+    send(None, clk, a, "back")
+    check("menu: so does back", lob.state == "play")
+    send(None, clk, a, "menu")
+    clk.tick(int(30.5 / DT))
+    check("menu: so does waiting", lob.state == "play")
+    send(None, clk, a, "menu")
+    while lob.at_light != lob.red:
+        send(None, clk, a, "right")
+    send(None, clk, a, "pick")
+    check("menu: the red light opens the picker", lob.state == "games" and lob.resume == "play", lob.state)
+    send(None, clk, a, "back")
+    check("menu: the picker's back returns to the game", lob.state == "play" and h.game.st is g.st)
+    st = g.st
+    send(None, clk, a, "menu")
+    while lob.at_light != lob.red:
+        send(None, clk, a, "left")
+    send(None, clk, a, "pick")
+    send(None, clk, a, "pick")                       # this game: its setup again, its players still in
+    check("menu: this game again is its setup", lob.state == "setup" and lob.joined == [a] and
+          lob.editing(a) == "start", (lob.state, lob.joined))
+    send(None, clk, a, "pick")
+    check("menu: ... and a new game from it", lob.state == "play" and h.game.st is not st)
+    send(None, clk, a, "menu")
+    while lob.at_light != lob.red:
+        send(None, clk, a, "right")
+    send(None, clk, a, "pick")
+    while lob.names[lob.index] != "paint":
+        send(None, clk, a, "right")
+    send(None, clk, a, "pick")
+    check("menu: to paint", h.name == "paint" and lob.state == "play", (h.name, lob.state))
+    send(None, clk, a, "pick")
+    painted = sum(1 for t in range(geometry.SPOTS) if h.game.paint[t])
+    send(None, clk, a, "menu")
+    send(None, clk, a, "pick")                       # green: paint goes on
+    check("menu: in paint too, and back to it", lob.state == "play" and painted == 1, (lob.state, painted))
+    send(None, clk, a, "menu")
+    while lob.at_light != lob.red:
+        send(None, clk, a, "right")
+    send(None, clk, a, "pick")
+    while lob.names[lob.index] != "rush":
+        send(None, clk, a, "right")
+    send(None, clk, a, "pick")
+    check("menu: and from paint to Island Rush's setup", h.name == "rush" and lob.state == "setup",
+          (h.name, lob.state))
+
+
 def usb_page():
-    b, g, clk = new_ui()
+    b, h, clk = new_ui()
+    lob = h.lobby
     c1 = b.controls.get("a", "player 1 (USB)", 1, CAN["arrows"])
     c2 = b.controls.get("b", "player 2 (Wiimote)", None, CAN["arrows"])
     clk.tick(2)
+    g = h.game
     keys = [f["key"] for f in g.options()]
-    check("page: the form", keys == ["players", "seat:a", "seat:b"], keys)
-    msg = g.setup({"players": "3", "seat:a": "2", "seat:b": "2"}, clk.t)
-    check("page: two at one seat is refused", msg and "both at seat 2" in msg and g.phase == "join", msg)
-    msg = g.setup({"players": "4", "seat:a": "1", "seat:b": "4"}, clk.t)
-    check("page: started", msg is None and g.phase == "play", msg)
+    check("page: the form", keys == ["players", "seat:a", "color:a", "seat:b", "color:b"], keys)
+    msg = h.apply("setup", {"players": "3", "seat:a": "2", "seat:b": "2"}, clk.t)
+    check("page: two at one seat is refused", msg and "both at seat 2" in msg and lob.state == "setup", msg)
+    msg = h.apply("setup", {"players": "4", "seat:a": "1", "seat:b": "4", "color:a": "3", "color:b": "3"}, clk.t)
+    check("page: started", msg is None and lob.state == "play", msg)
     seats = [(x.seat, x.ctrl.id if x.ctrl else None) for x in g.seats]
     check("page: humans where asked, computers spread", len(seats) == 4 and (1, "a") in seats and (4, "b") in seats,
           seats)
+    check("page: a color taken twice goes to the first", [x.color for x in g.seats if x.ctrl is c1] == [G.PALETTE[3]]
+          and len(set(x.color for x in g.seats)) == 4)
     play_through("page game", g, clk, {"a": drive_arrows, "b": drive_arrows}, 3)
+    clk.tick()
+    send(None, clk, c2, "back")
+    check("page: after it, the board's setup with the page's players", lob.state == "setup" and
+          set(lob.joined) == {c1, c2} and lob.choices["seat:b"] == "4", (lob.state, lob.joined))
 
 
 def computers_only():
-    b, g, clk = new_ui()
+    b, h, clk = new_ui()
+    g = h.game
     g.start(clk.t, seed=9, lineup=[(x, G.PALETTE[k], None) for k, x in enumerate((1, 2, 3, 4, 5, 6))])
+    h.lobby.started({"players": "6"})
     shown = []
     done = g.tiger_done
 
@@ -397,6 +538,8 @@ def computers_only():
             break
         clk.tick()
     check("six computers finish a game", g.st.over and g.st.winner >= 0, (g.st.round, g.busy))
+    clk.tick()
+    check("... and the lobby has it", h.lobby.state == "end", h.lobby.state)
     check("the tigers' walks and bites shown match the board after", shown and all(shown), shown)
 
 
@@ -405,7 +548,8 @@ def hosted():
     check("Island Rush is a game on the board", "rush" in names, names)
     h = host.Host(name="rush", board=host.Board(Lights(), Controls(hardware=False)))
     h.frame(0.0)
-    check("it runs under the host", h.name == "rush" and isinstance(h.game, G.Game))
+    check("it runs under the host", h.name == "rush" and type(h.game).__module__ == "games.rush.game" and
+          h.lobby.state == "setup")         # (its module may be loaded afresh: lobby_moves switched games)
 
 
 if __name__ == "__main__":
@@ -413,6 +557,8 @@ if __name__ == "__main__":
     board_setup("2 players, scan and arrows", [(1, 1, "scan"), (4, 4, "arrows")], 2, 1)
     board_setup("1 switch vs 3 computers", [(2, 2, "switch")], 4, 2)
     board_setup("3 humans + 3 computers", [(1, 1, "arrows"), (3, 3, "scan"), (5, 5, "switch")], 6, 3)
+    lobby_moves()
+    menu()
     usb_page()
     computers_only()
     hosted()

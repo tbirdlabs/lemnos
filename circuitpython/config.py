@@ -35,6 +35,8 @@ BRIGHTNESS = 0.1              # overall, before the power limit; the USB page se
 POWER_LIMIT_A = 4.0           # the LEDs' share of the 5 V supply; None = no limit (full brightness)
 MA_PER_CHANNEL = 20           # current of one color channel of one LED at full
 MA_IDLE = 1                   # current of each LED when dark
+MENU_HOLD_S = 3.0             # any wired switch held this long asks for the game picker (from any game; it asks
+                              # again on the bar: pick the red light)
 EFFECT_TIME_SCALE = 1.0       # every light effect's cycle time is multiplied by this (1.5 = all 1.5x slower);
                               # nothing switches lights on and off faster than 3 times a second either way
 
@@ -74,7 +76,8 @@ CONTROLLERS = [
 #   "i2c"       outboard controller boards on the STEMMA QT I2C bus (docs/controllers.md). Each gamepad or switch box
 #               on them becomes its own controller (seat None) the first time it sends something.
 #   "console"   the USB serial console as up to 6 controllers, for testing: type m (move), n (move back), p (pick),
-#               b (back), w/a/s/d (up/left/down/right); a digit 1-6 switches which console controller the keys go to.
+#               b (back), w/a/s/d (up/left/down/right), q (menu: the game picker); a digit 1-6 switches which console
+#               controller the keys go to.
 #               The USB page (Salient.html on the CIRCUITPY drive) works through it too.
 #   "radio"     the radio co-processor (radio/README.md): an ESP32 on the TX/RX pins bringing Bluetooth controllers
 #               (Wiimote, Xbox, Xbox Adaptive Controller), phones as controllers, the web settings page and the

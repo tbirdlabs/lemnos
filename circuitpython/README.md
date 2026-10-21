@@ -16,6 +16,7 @@ They meet in one small interface, the `Game` class in [`gamehost/game.py`](gameh
 | `code.py` | Starts the host at power-up. |
 | `gamehost/game.py` | The `Game` base class: the whole interface between the board and a game. |
 | `gamehost/host.py` | Runs a game: tells it about controllers, hands it their actions, has it draw, shows the frame. |
+| `gamehost/lobby.py` | Between games, the same for every game: the game picker (each game's card), joining, the game's setup fields (its `options()`), play again or back to the setup when it ends. |
 | `gamehost/geometry.py` | The board's shape: hex and line names (A1–G4), neighbors, each seat's side and view, arrow-key moves. |
 | `gamehost/lights.py` | Drawing by hex, line and bar, by name; the LED map of both boards (`docs/wiring.md`); the power cap. |
 | `gamehost/drivers.py` | LED drivers: NeoPXL8 (8 outputs), one NeoPixel strand, or none. |
@@ -33,7 +34,8 @@ They meet in one small interface, the `Game` class in [`gamehost/game.py`](gameh
 | `games/paint.py` | The example game: paint spots in your color. Also a quick test of every light and controller. |
 | `games/testpattern.py` | Test pattern: red, then green, then blue fill every LED one at a time, left to right; pause and step to print an LED's strip address. |
 | `games/clock.py` | An analog wall clock: the island is the face, the six bars a 60-light minute ring. |
-| `games/salient/` | Salient: `game.py` (the board's side: setup, play UI, the computer's turns), `engine.py` (rules), `ai.py`, `difficulty.py`, `rules.py` (generated; don't edit), `bench.py` (bring-up). |
+| `games/salient/` | Salient: `game.py` (the board's side: setup fields, play UI, the computer's turns), `card.py` (its picture in the game picker), `engine.py` (rules), `ai.py`, `difficulty.py`, `rules.py` (generated; don't edit), `bench.py` (bring-up). |
+| `games/rush/` | Island Rush: `game.py` (setup fields, play UI, the tigers on the lights), `engine.py` (rules), `ai.py` (the computer players), `card.py`. |
 | `tools/` | Desktop only, never copied to the board: tests, the JS / Python replay comparison, the profiler, `gen_rules.js`, `deploy.ps1` (puts the software on the board), `settime.ps1` (sets the board's clock from this computer). |
 
 ## Tests (desktop, from this folder)
@@ -49,11 +51,15 @@ run-node tools/test_page.js     Salient.html itself, without a browser, against 
 
 ## Salient on the board
 
-- **Setup:** move cycles the island previews (Invasion, Defender, Island Rush), pick chooses. The chooser sits at
-  their controller's seat (seat 1 if it has none) and the island is laid out around them. Another controller can
-  press pick to take the other side; otherwise the computer plays it, and move sets the difficulty (1–10 lights on
-  the chooser's bar, 7 = fair). Pick starts. Island Rush: each player picks a side and a color; the first sets the
-  number of players and the difficulty.
+- **Setup** (the board's lobby, the same for every game: `gamehost/lobby.py`): press pick to join, move picks a
+  side, pick takes it (Red invades, Blue defends). The island is laid out around Red's controller's seat (or
+  opposite Blue's; seat 1 if it has none). A second player can join and take the other side; otherwise the computer
+  plays it, and the first player sets the difficulty (1–10 lights on their bar, 7 = fair). Then their bar breathes
+  green: pick starts. After a game, pick plays again; back returns to the setup (everyone still in it), and back
+  with nobody joined opens the game picker (each game's card on the island).
+- **Menu, from any game:** hold a wired button 3 s (`MENU_HOLD_S`), or `q` on the console, or Menu (Home) on the USB
+  page. The game pauses and your bar goes green with one red light: move to the red light and pick for the game
+  picker; pick green, back, or wait 30 s to carry on.
 - **Each player sees the island from their own side:** rows run across their side, far to near, and their bar is
   past their nearest row. Move steps through the rows with something to pick, then the bar; pick opens a row; move
   steps through its spots; pick picks; back returns to the rows. Arrows move the cursor directly. A controller
@@ -96,8 +102,8 @@ same seed plays the same game on both. They import nothing from `gamehost/`.
    a time, rows A to G left to right as seen from seat 1, then the bars seat 1 to 6, so an LED out of turn is mapped
    wrong. Pick pauses; move steps and prints the LED's channel and address. To check every controller by hand, set
    `GAME = "paint"`.
-5. Then `code.py` runs the game. The serial console works as up to 6 controllers for testing (m, n, p, b, w/a/s/d;
-   a digit switches controller). A line starting with any other letter is a command for the game, such as
+5. Then `code.py` runs the game. The serial console works as up to 6 controllers for testing (m, n, p, b, w/a/s/d,
+   q for the game picker; a digit switches controller). A line starting with any other letter is a command for the game, such as
    `time 14:32` for the clock (`GAME = "clock"`); `powershell -File tools\settime.ps1 COM16` sends this computer's time.
    With the radio wired (`radio/README.md`), `radio` lists its players and `radio pair` starts pairing. `/mem`
    prints the free RAM, in any game (the `/` because `m` is a key; the USB page adds it), and `help` lists every
@@ -114,9 +120,10 @@ open, so close Mu, Thonny or a serial monitor first.
 - **Game and brightness:** take effect at once and are remembered through power-off (`gamehost/saved.py`, in the
   RP2040's own non-volatile memory, so the drive stays untouched). **Back to config.py's** forgets them. The radio's
   web page sets the same two settings; the last one set wins.
-- **New game:** the running game's setup as a form (Salient: Invasion or Island Rush, who plays each side, where Red
-  lands, seats, difficulty) and **Start**; or **New game at the board**, back to the game's own setup on the board.
-  A game offers the form with `options()` and `setup()` (`docs/making-games.md`).
+- **New game:** the running game's setup as a form (Salient: each controller's side, where Red lands, the
+  difficulty; Island Rush: how many play, each controller's seat and color) and **Start**; or **New game at the
+  board**, back to the game's setup on the board. A game offers the form with `options()` and `setup()`, the same
+  fields the board's lobby uses (`docs/making-games.md`).
 - **The clock** is set from the computer's when the page connects.
 - **Play from this computer:** a D-pad, Pick, Back and Move, or the keyboard (arrows, Enter, Esc, Space); up to six
   players (`usb-p1`..`usb-p6`). They leave the game when the page closes.

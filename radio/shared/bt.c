@@ -15,8 +15,10 @@
 //   Wiimote, as each one is set to be held (its grip, on the web page):
 //     upright (the default; one hand): D-pad moves, A = pick, B (the trigger underneath) = back
 //     sideways (two hands, D-pad on the left): D-pad moves, 2 = pick, 1 = back
+//     either way, Home = menu (the board's game picker)
 //     A Nunchuk's stick moves too, held either way.
-//   Xbox, Xbox Adaptive Controller, other gamepads: D-pad or left stick moves, A = pick, B = back.
+//   Xbox, Xbox Adaptive Controller, other gamepads: D-pad or left stick moves, A = pick, B = back, the Xbox (or
+//   PS, Home) button or Start = menu.
 
 #include "bt.h"
 
@@ -320,6 +322,7 @@ static void wii_input(const uni_hid_device_t* d, const uni_gamepad_t* gp, int sl
             two = gp->buttons & BUTTON_B;
             break;
     }
+    in->menu = gp->misc_buttons & MISC_BUTTON_SYSTEM;     // Home
     hub_lock();
     int i = hub_known.live[slot];
     int grip = i >= 0 ? hub_known.k[i].grip : GRIP_UPRIGHT;
@@ -350,6 +353,7 @@ static void on_controller_data(uni_hid_device_t* d, uni_controller_t* ctl) {
     } else {
         in.pick = gp->buttons & BUTTON_A;
         in.back = gp->buttons & BUTTON_B;
+        in.menu = gp->misc_buttons & (MISC_BUTTON_SYSTEM | MISC_BUTTON_START);
         in.has_stick = true;
     }
     if (in.has_stick && d->controller_type != CONTROLLER_TYPE_WiiController) {

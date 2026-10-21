@@ -88,7 +88,7 @@ kbd { font: 600 13px/1 ui-monospace, Consolas, monospace; border: 1px solid var(
 .pad .pick { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-size: 15px; }
 .pad button.down, .side button.down { filter: brightness(.85); transform: translateY(1px); }
 .side { display: grid; grid-template-columns: repeat(2, 92px); grid-auto-rows: 52px; gap: 6px; }
-.side .back { grid-column: span 2; }
+.side .back, .side .menu { grid-column: span 2; }
 .who { min-width: 150px; flex: 1; }
 
 /* console */
@@ -156,6 +156,7 @@ footer { color: var(--muted); font-size: 13px; text-align: center; margin-top: 8
           <div class="side">
             <button data-a="move_back">◂ Move</button><button data-a="move">Move ▸</button>
             <button data-a="back" class="back">Back</button>
+            <button data-a="menu" class="menu" title="Back to the game picker (the board asks first: pick the red light)">Menu</button>
           </div>
           <div class="who">
             <label for="player">Player</label>
@@ -164,7 +165,7 @@ footer { color: var(--muted); font-size: 13px; text-align: center; margin-top: 8
         </div>
         <p class="note">Keys (click the board first): <kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd> move,
           <kbd>Enter</kbd> pick, <kbd>Esc</kbd> back, <kbd>Space</kbd> / <kbd>Shift</kbd>+<kbd>Space</kbd> move
-          forward / back (scanning), <kbd>1</kbd>–<kbd>6</kbd> which player. Each player joins the game the first
+          forward / back (scanning), <kbd>Home</kbd> menu (the game picker), <kbd>1</kbd>–<kbd>6</kbd> which player. Each player joins the game the first
           time they press something, like any controller.</p>
       </section>
     </div>
@@ -822,7 +823,7 @@ for (const b of document.querySelectorAll("[data-a]")) {
   });
 }
 const KEYS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", Enter: "pick",
-               Escape: "back", Backspace: "back" };
+               Escape: "back", Backspace: "back", Home: "menu" };
 document.addEventListener("keydown", (e) => {
   const t = document.activeElement;
   if (t && t !== document.body && t !== $("stage")) return;     // typing in a field, or on a button: theirs

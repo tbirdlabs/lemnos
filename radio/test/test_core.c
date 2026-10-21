@@ -38,6 +38,8 @@ static void test_link(void) {
     CHECK(strcmp(out, "IN p1 up\n") == 0, "IN: %s", out);
     link_fmt_in(out, 2, ACT_PICK);
     CHECK(strcmp(out, "IN p2 pick\n") == 0, "IN pick: %s", out);
+    link_fmt_in(out, 4, ACT_MENU);
+    CHECK(strcmp(out, "IN p4 menu\n") == 0, "IN menu: %s", out);
     link_fmt_ctl(out, 3, KIND_XAC);
     CHECK(strcmp(out, "CTL p3 connected xac\n") == 0, "CTL: %s", out);
     link_fmt_ctl(out, 3, KIND_NONE);
@@ -185,6 +187,12 @@ static void test_pads(void) {
     feed(&p, 3, (pad_input_t){0});
     feed(&p, 3, (pad_input_t){.back = true});
     CHECK(nev == 2 && evs[0].a == ACT_PICK && evs[1].a == ACT_BACK, "pick once while held, then back");
+    feed(&p, 3, (pad_input_t){0});
+    feed(&p, 3, (pad_input_t){.menu = true});
+    run_to(&p, clock_ms + 1000);
+    feed(&p, 3, (pad_input_t){.menu = true});
+    CHECK(nev == 3 && evs[2].a == ACT_MENU, "menu once while held");
+    feed(&p, 3, (pad_input_t){0});
 
     // the D-pad wins over the stick; rolling to a second direction takes it
     nev = 0;

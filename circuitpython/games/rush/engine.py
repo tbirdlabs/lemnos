@@ -1,5 +1,5 @@
 # Island Rush: up to 6 players race through the jungle to the taco truck in the middle of the island
-# (docs/rules/island-rush-rules-v0.7.md). Everyone clears jungle; tigers chase the leaders; a player can roll another
+# (docs/rules/island-rush-rules-v0.8.md). Everyone clears jungle; tigers chase the leaders; a player can roll another
 # off a spot (or the truck) next to theirs. One player at a time holds the truck, and whoever holds it after the tiger
 # at the end of the round wins. Pure logic, no hardware: the board's game and the simulator (tools/sim_rush.py) both
 # run this.

@@ -24,6 +24,8 @@ header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; }
 .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--bad); flex: none; }
 .dot.on { background: var(--ok); }
 header a { color: var(--muted); font-size: 14px; text-decoration: none; padding: 8px; }
+#menu { color: var(--muted); font-size: 14px; padding: 6px 10px; border: 1px solid var(--edge); border-radius: 8px; }
+#menu.on { background: var(--press); color: #1b1206; }
 .pad { flex: 1; display: grid; grid-template-columns: 1fr 1fr; align-items: center; justify-items: center;
        gap: 16px; padding: 8px 16px 24px; }
 @media (orientation: portrait) { .pad { grid-template-columns: 1fr; grid-template-rows: 1fr auto; } }
@@ -51,6 +53,7 @@ header a { color: var(--muted); font-size: 14px; text-decoration: none; padding:
   <span id="dot" class="dot"></span>
   <span id="who">Connecting&hellip;</span>
   <span id="msg"></span>
+  <span id="menu" role="button" title="Back to the game picker (the board asks first: pick the red light)">Menu</span>
   <a href="/">Settings</a>
 </header>
 <div class="pad">
@@ -67,7 +70,7 @@ header a { color: var(--muted); font-size: 14px; text-decoration: none; padding:
 "use strict";
 const UP = 1, DOWN = 2, LEFT = 4, RIGHT = 8;
 const $ = (id) => document.getElementById(id);
-let ws = null, dirs = 0, pick = false, back = false, sent = "", alive = null;
+let ws = null, dirs = 0, pick = false, back = false, menu = false, sent = "", alive = null;
 
 function phoneId() {
   let id = null;
@@ -83,7 +86,7 @@ function phoneId() {
 }
 
 function send() {
-  const msg = "s " + dirs + " " + (pick ? 1 : 0) + " " + (back ? 1 : 0);
+  const msg = "s " + dirs + " " + (pick ? 1 : 0) + " " + (back ? 1 : 0) + " " + (menu ? 1 : 0);
   if (msg === sent || !ws || ws.readyState !== 1) return;
   ws.send(msg);
   sent = msg;
@@ -94,6 +97,7 @@ function show() {
     $(id).classList.toggle("on", !!(dirs & bit));
   $("pick").classList.toggle("on", pick);
   $("back").classList.toggle("on", back);
+  $("menu").classList.toggle("on", menu);
 }
 
 function buzz() { if (navigator.vibrate) navigator.vibrate(8); }
@@ -131,14 +135,16 @@ function hold(id, set) {
 }
 hold("pick", (v) => { pick = v; show(); send(); });
 hold("back", (v) => { back = v; show(); send(); });
+hold("menu", (v) => { menu = v; show(); send(); });
 
-// A keyboard works too (testing from a computer): arrows, Enter or Space = pick, Esc or Backspace = back
+// A keyboard works too (testing from a computer): arrows, Enter or Space = pick, Esc or Backspace = back, Home = menu
 const KEYS = { ArrowUp: UP, ArrowDown: DOWN, ArrowLeft: LEFT, ArrowRight: RIGHT };
 let keyDirs = 0;
 function key(e, down) {
   if (KEYS[e.key]) { keyDirs = down ? keyDirs | KEYS[e.key] : keyDirs & ~KEYS[e.key]; setDirs(keyDirs); }
   else if (e.key === "Enter" || e.key === " ") { pick = down; show(); send(); }
   else if (e.key === "Escape" || e.key === "Backspace") { back = down; show(); send(); }
+  else if (e.key === "Home") { menu = down; show(); send(); }
   else return;
   e.preventDefault();
 }

@@ -81,8 +81,11 @@ void pads_input(pads_t* p, int slot, const pad_input_t* in, uint32_t now) {
         p->emit(slot, ACT_PICK, p->ctx);
     if (in->back && !s->back)
         p->emit(slot, ACT_BACK, p->ctx);
+    if (in->menu && !s->menu)
+        p->emit(slot, ACT_MENU, p->ctx);
     s->pick = in->pick;
     s->back = in->back;
+    s->menu = in->menu;
 }
 
 void pads_tick(pads_t* p, uint32_t now) {
