@@ -3,12 +3,12 @@
 #   py -3 tools/sim_rush.py --games 400 --players 2,3,4,6 --who careful,beginner
 #   py -3 tools/sim_rush.py --games 400 --set tigers=2 --set tigerHoldA=3
 #
-# Stand-ins: careful (clears toward the truck at 6 green or better, otherwise builds up beside it; keeps its lights
-# for next turn rather than throw them at bad odds), beginner (spends every light every turn, goes at 5 green or
+# Stand-ins: careful (clears toward the truck at 6 green or better, otherwise builds up beside it, or widens its way
+# rather than go at worse odds), beginner (spends every light every turn, goes at 5 green or
 # better, otherwise builds up), random (any legal move but ending early). --who lists one kind per seat in turn
 # order (repeated to fill), so "careful,beginner" alternates them.
 # Reports per player count: rounds to a win (median, 10th-90th), draws (the round cap), wins by turn order and by
-# kind, how often players got onto the truck, in how many games the tiger found 2 or more on it at once, and how
+# kind, how often players got onto the truck and were rolled off it by another, and how
 # often the tiger attacked a spot off the truck.
 
 import argparse
@@ -45,30 +45,19 @@ def one(job):
     st = E.new_game(seats, seed * 7919 + 1, rules)
     st.tiger_log = []
     arrivals = 0                                     # a player getting onto the truck
+    bumps = 0                                        # a holder rolled off it
     while not st.over:
         p = st.cur
         was = st.truck[p]
+        held = E.holder(st)
         verb, t = KINDS[who[st.cur]](st, rng)
         E.apply(st, verb, t)
         if was == 0 and st.truck[p] > 0:
             arrivals += 1
-    shared = _shared_rounds(st.tiger_log)
+        if held >= 0 and held != p and st.truck[held] == 0 and verb == E.V_CLEAR and t == E.CENTER:
+            bumps += 1
     bites = sum(1 for e in st.tiger_log if e[0] != E.CENTER and e[2])
-    return st.winner, st.round, arrivals, bites, shared
-
-
-def _shared_rounds(log):
-    """Tiger visits to the truck that found 2 or more players on it (consecutive truck entries are one round)."""
-    n = 0
-    run = 0
-    for e in log + [[-1]]:
-        if e[0] == E.CENTER:
-            run += 1
-        else:
-            if run >= 2:
-                n += 1
-            run = 0
-    return n
+    return st.winner, st.round, arrivals, bites, bumps
 
 
 def main():
@@ -96,14 +85,14 @@ def main():
             for i, k in enumerate(who):
                 by_kind[k] = by_kind.get(k, 0) + by_order[i]
             arrivals = sum(r[2] for r in res)
-            shared = sum(1 for r in res if r[4] > 0)
+            bumps = sum(r[4] for r in res)
             q = lambda f: rounds[min(len(rounds) - 1, int(f * len(rounds)))] if rounds else 0
             print("%d players: rounds median %d (10%%-90%%: %d-%d), draws %d%%; wins by turn order %s; by kind %s; "
-                  "on the truck %.1f times a game, shared in %d%% of games; tiger bites %.1f a game"
+                  "onto the truck %.1f times a game, rolled off it %.1f; tiger bites %.1f a game"
                   % (n, q(0.5), q(0.1), q(0.9), 100 * draws // len(res),
                      "/".join("%d" % (100 * x // len(res)) for x in by_order),
                      ", ".join("%s %d%%" % (k, 100 * v // len(res)) for k, v in by_kind.items()),
-                     arrivals / len(res), 100 * shared // len(res), sum(r[3] for r in res) / len(res)),
+                     arrivals / len(res), bumps / len(res), sum(r[3] for r in res) / len(res)),
                   flush=True)
 
 

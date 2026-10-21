@@ -167,17 +167,114 @@ def engine_rules():
         wins[g.winner] += 1
     check("every seat wins sometimes", min(wins) > 5, wins)
 
-    # the truck is shared ground: two players on it, the tiger attacks both, and a crowd plays on
-    st = E.new_game((1, 4), 3)
-    for p in (0, 1):
-        st.truck[p] = 3
-    st.cur = 0
-    st.first = 0
+    # computer players only clear toward the truck; tigers walk a spot at a time through spots no player holds, beside
+    # their leader's lead spot, and don't sit still when there's another spot beside it
+    away = walks = leaps = still = moved = heads = bites = 0
+    for seats in ((1, 4), (1, 2, 3, 4, 5, 6)):
+        for seed in range(40):
+            g = E.new_game(seats, seed)
+            g.tiger_log = []
+            rng = random.Random(seed)
+            while not g.over:
+                p = g.cur
+                mine = E.spots_of(g, p)
+                v, t = AI.choose(g, "beginner", rng)
+                if v == E.V_CLEAR and mine:
+                    far = AI.ways(g, p)
+                    if min(far[x] for x in mine) == AI.FAR:
+                        far = AI.ways(g, p, False)
+                    away += far[t] >= min(far[x] for x in mine)
+                n = len(g.tiger_log)
+                was = list(g.tigers)
+                E.apply(g, v, t)
+                if len(g.tiger_log) == n or g.tiger_log[n][0] == E.CENTER:
+                    continue
+                board = g.tiger_board
+                bitten = set()                       # (an earlier tiger's bite may give a spot back to the jungle)
+                for spot, who, rolls, i, path in g.tiger_log[n:]:
+                    at = was[i]
+                    for x in path:
+                        if (board[0][x] != -1 and x not in bitten) or (x == E.CENTER and any(board[2])):
+                            walks += 1
+                        if at >= 0 and x not in E.NB[at]:
+                            leaps += 1
+                        at = x
+                    if was[i] >= 0:
+                        moved += 1 if path else 0
+                        still += 0 if path else 1
+                    if spot >= 0:
+                        bitten.add(spot)
+                        lead = min((x for x in range(E.N) if board[0][x] == who), key=lambda x: (E.DIST[x], x))
+                        heads += spot == lead
+                        bites += 1
+    check("computer players never clear away from the truck", away == 0, away)
+    check("tigers walk only through spots no player holds (the truck only when no one does)", walks == 0, walks)
+    check("tigers walk a spot at a time (leaping only when boxed in)", leaps * 10 < moved, (leaps, moved))
+    check("tigers move most rounds", still * 3 < moved, (still, moved))
+    check("tigers bite their leader's lead spot", heads * 10 > bites * 9, (heads, bites))
+
+    # one player holds the truck: another rolls them off it (their lights go back beside the truck, the rest are
+    # lost) or loses a light; the tiger attacks the holder at the end of the round, and a holder left there wins
+    def truck_game():
+        st = E.new_game((1, 4), 3)
+        nb0, nb1 = E.NB[E.CENTER][0], E.NB[E.CENTER][3]
+        st.truck[0] = 3
+        st.owner[nb0], st.units[nb0] = 0, 2
+        st.owner[nb1], st.units[nb1] = 1, 3
+        st.cur = st.first = 1
+        st.players[1].bar = 3
+        return st, nb0, nb1
+
+    def rng_for(st, win):                            # a dice stream whose next roll wins (or loses) at this chance
+        c = E.chance(st, st.cur, E.CENTER)
+        for r in range(1000):
+            st.rng = r
+            if (E.d10(st) <= c) == win:
+                st.rng = r
+                return
+    st, nb0, nb1 = truck_game()
+    check("only the holder can add to the truck", E.can_add(st, 0, E.CENTER) is False and st.truck[1] == 0)
+    check("challenge: the holder's lights against yours", E.against(st, 1, E.CENTER) == 3 and
+          E.chance(st, 1, E.CENTER) == 5, E.chance(st, 1, E.CENTER))
+    rng_for(st, True)
+    E.apply(st, E.V_CLEAR, E.CENTER)
+    check("a won challenge rolls the holder off", E.holder(st) == 1 and st.truck == [0, 1] and st.units[nb1] == 2,
+          (st.truck, st.units[nb1]))
+    check("... its lights back beside the truck, up to 3", st.units[nb0] == 3 and st.owner[nb0] == 0, st.units[nb0])
+    st, nb0, nb1 = truck_game()
+    rng_for(st, False)
+    E.apply(st, E.V_CLEAR, E.CENTER)
+    check("a lost challenge costs a light", st.truck == [3, 0] and st.units[nb1] == 2, (st.truck, st.units[nb1]))
+    st, nb0, nb1 = truck_game()
     st.tiger_log = []
     E.tiger_phase(st)
     hit = [e[1] for e in st.tiger_log if e[0] == E.CENTER]
-    check("the tiger attacks everyone on the truck", hit == [0, 1], st.tiger_log)
-    check("one left on the truck wins; more play on", st.over == (len(E.on_truck(st)) == 1), (st.truck, st.over))
+    check("the tiger attacks the holder", hit == [0], st.tiger_log)
+    check("a holder left on the truck wins; cleared off, it's jungle again",
+          (st.over and st.winner == 0) if st.truck[0] else (not st.over and st.units[E.CENTER] == 1),
+          (st.truck, st.over, st.units[E.CENTER]))
+    # a tiger in your way can be fought: your lights touching it against its strength; a win drives it off the island
+    # till the round's end (what's under it stays), a loss costs a light. It can stand on the truck when it's open.
+    st, nb0, nb1 = truck_game()
+    st.truck[0] = 0
+    st.tigers[0] = E.CENTER
+    check("a tiger can be fought", E.can_clear(st, 1, E.CENTER) and E.against(st, 1, E.CENTER) == 2 and
+          E.chance(st, 1, E.CENTER) == 6, E.chance(st, 1, E.CENTER))
+    rng_for(st, True)
+    E.apply(st, E.V_CLEAR, E.CENTER)
+    check("a won fight drives the tiger off, nobody moves in", st.tigers[0] == -1 and st.truck[1] == 0 and
+          st.units[nb1] == 3, (st.tigers, st.truck, st.units[nb1]))
+    st, nb0, nb1 = truck_game()
+    st.truck[0] = 0
+    st.tigers[0] = E.CENTER
+    rng_for(st, False)
+    E.apply(st, E.V_CLEAR, E.CENTER)
+    check("a lost fight costs a light", st.tigers[0] == E.CENTER and st.units[nb1] == 2, (st.tigers, st.units[nb1]))
+    st, nb0, nb1 = truck_game()
+    check("no tiger on a held truck", not E._free(st, E.CENTER, 0))
+    st.truck[0] = 0
+    check("a tiger can stand on the open truck", E._free(st, E.CENTER, 0))
+
     st = E.new_game((1, 4), 3)
     st.players[1].bar = 3
     nb = [n for n in E.NB[E.CENTER]][0]
@@ -187,7 +284,41 @@ def engine_rules():
     check("walk onto the open truck", E.can_clear(st, 1, E.CENTER) and E.jungle(st, E.CENTER) == 0)
     E.apply(st, E.V_CLEAR, E.CENTER)
     check("... with 1 light, leaving 1", st.truck[1] == 1 and st.units[nb] == 1)
-    check("others' spots are walls", not E.can_clear(st, 0, nb))
+
+    # another player's spot next to yours can be rolled off: your lights touching it against theirs on it; a win sends
+    # their lights back to their other spots touching it (up to 3, the rest lost) and you move in, a loss costs a light
+    def spot_game():
+        st = E.new_game((1, 4), 3)
+        a, b, c = 0, 1, 2                            # A1, A2, A3 in a row: player 0 on A1, player 1 on A2 (3) and B2
+        st.owner[a], st.units[a] = 0, 3
+        st.owner[b], st.units[b] = 1, 3
+        b2 = [x for x in E.NB[b] if x in E.NB[a]][0]
+        st.owner[b2], st.units[b2] = 1, 2
+        st.cur = st.first = 0
+        st.players[0].bar = 3
+        return st, a, b, b2
+
+    def rng_at(st, t, win):
+        c = E.chance(st, st.cur, t)
+        for r in range(1000):
+            st.rng = r
+            if (E.d10(st) <= c) == win:
+                st.rng = r
+                return
+    st, a, b, b2 = spot_game()
+    check("another player's spot can be attacked", E.can_clear(st, 0, b) and E.against(st, 0, b) == 3 and
+          E.chance(st, 0, b) == 5, E.chance(st, 0, b))
+    rng_at(st, b, True)
+    E.apply(st, E.V_CLEAR, b)
+    check("a won attack rolls them off and you move in", st.owner[b] == 0 and st.units[b] == 1 and st.units[a] == 2,
+          (st.owner[b], st.units[b], st.units[a]))
+    check("... their lights back to their spot beside it, up to 3", st.owner[b2] == 1 and st.units[b2] == 3,
+          st.units[b2])
+    st, a, b, b2 = spot_game()
+    rng_at(st, b, False)
+    E.apply(st, E.V_CLEAR, b)
+    check("a lost attack costs a light", st.owner[b] == 1 and st.units[b] == 3 and st.units[a] == 2,
+          (st.units[b], st.units[a]))
 
 
 def board_setup(name, humans, total, seed):
@@ -251,11 +382,22 @@ def usb_page():
 def computers_only():
     b, g, clk = new_ui()
     g.start(clk.t, seed=9, lineup=[(x, G.PALETTE[k], None) for k, x in enumerate((1, 2, 3, 4, 5, 6))])
+    shown = []
+    done = g.tiger_done
+
+    def tiger_done(now):                             # the board the tigers played forward ends as the real one
+        if not g.tiger_queue:
+            real = E.board(g.st)
+            shown.append(g.disp[4] == real[4] and g.disp[0] == real[0] and
+                         all(g.disp[1][t] == real[1][t] for t in range(E.N) if t != E.CENTER))
+        done(now)
+    g.tiger_done = tiger_done
     for _ in range(200000):
         if g.st.over and not g.busy:
             break
         clk.tick()
     check("six computers finish a game", g.st.over and g.st.winner >= 0, (g.st.round, g.busy))
+    check("the tigers' walks and bites shown match the board after", shown and all(shown), shown)
 
 
 def hosted():

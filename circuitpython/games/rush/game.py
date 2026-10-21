@@ -1,7 +1,8 @@
-# Island Rush on the board (docs/rules/island-rush-rules-v0.2.md): up to 6 players race through the jungle from
-# the island's corners to the taco truck in the middle; a tiger chases the leader and guards the truck; the last one
-# left on the truck after the tiger wins. The rules are engine.py, the computer players ai.py; this file is the
-# board's side: setup, the play UI and drawing.
+# Island Rush on the board (docs/rules/island-rush-rules-v0.7.md): up to 6 players race through the jungle from the
+# island's corners to the taco truck in the middle; tigers chase the leaders, and one guards the truck. One player holds
+# the truck at a time (another rolls them off it); whoever holds it after the tiger at the end of a round wins. A tiger
+# in your way can be fought off, and another player rolled off a spot. The rules are engine.py, the computer players
+# ai.py; this file is the board's side: setup, the play UI and drawing.
 #
 # Setup: any controller presses pick to join. Move picks a corner (each seat's is the left end of its side, as its
 # player faces the board), pick takes it; move picks a color, pick takes it. The first to join then sets how many play
@@ -11,12 +12,14 @@
 # Playing, as in Salient: each player reads the island from their own side. Move steps through the rows that hold
 # something you can pick, then your bar; pick opens a row, move steps through its spots, pick picks; back returns to
 # the rows. Arrows move the cursor directly. A controller without back gets a way-out stop at the end of each row.
-# Pick your own spot to add a light; pick jungle (or empty ground, or the truck) next to yours to see your chance on
-# your bar, and pick again to go. Pick your bar to end your turn; it also ends when your bar is empty.
+# Pick your own spot to add a light; pick jungle (or empty ground, the truck, a tiger or another player's spot) next
+# to yours to see your chance on your bar, and pick again to go. Pick your bar to end your turn; it also ends when your
+# bar is empty.
 #
 # The lights: jungle is green (1-3 lights, as players' lights), empty ground dark, the tiger orange lights running
-# round its spot, the truck a slow white glow, or each player on it in turn, a second each. At the end of a round the
-# tiger's rolls run along the bar of the player it attacks, over its chance in orange.
+# round its spot, the truck a slow white glow, or its holder's lights. At the end of a round each
+# tiger walks through the jungle a spot at a time to its leader's lead spot, then its rolls run along the bar of the
+# player it attacks, over its chance in orange.
 
 from gamehost import dice, fx, geometry
 from gamehost.game import Game as BaseGame
@@ -54,6 +57,7 @@ AI_HOP = 0.16
 AI_AIM = 1.0
 AI_ADD = 0.45
 TIGER_PAUSE = 0.6
+TIGER_STEP = 0.35                        # seconds a walking tiger takes a spot
 
 
 def draw_spot(lights, t, u, color, glow=False, effect=None):
@@ -268,8 +272,10 @@ class Game(BaseGame):
         self.aim = -1
         self.roll = None                 # (player, chance, dice.Roll, background colors) while a roll runs
         self.disp = None                 # the board as it was, shown while a roll runs
-        self.tiger_queue = []            # the tiger's rolls still to show: (spot, player, roll, chance)
+        self.tiger_queue = []            # the tigers' turns still to show: ("step", tiger, spot) and
+                                         # ("bite", spot, player, roll, chance)
         self.tiger_mark = -1
+        self.tiger_from = None           # the board as the last round ended (the tigers play forward from it)
         self.logged = 0
         self.busy = False
         self.changed()
@@ -450,16 +456,20 @@ class Game(BaseGame):
         self.aim = -1
         if t >= 0:
             self.seats[p].pos = t
-        rolled = verb == E.V_CLEAR and E.jungle(st, t) > 0
+        rolled = verb == E.V_CLEAR and E.against(st, p, t) > 0
         before = self.make_view()
         c = E.chance(st, p, t) if rolled else 0
         roll = E.apply(st, verb, t)
         self.changed()
         new = st.tiger_log[self.logged:]
         self.logged = len(st.tiger_log)
-        for spot, who, rolls in new:
+        for spot, who, rolls, i, path in new:
+            for x in path:
+                self.tiger_queue.append(("step", i, x))
             for r, ch in rolls:
-                self.tiger_queue.append((spot, who, r, ch))
+                self.tiger_queue.append(("bite", spot, who, r, ch))
+        if new:
+            self.tiger_from = st.tiger_board
         if rolled:
             self.busy = True
             self.disp = before
@@ -480,9 +490,10 @@ class Game(BaseGame):
         self.after_move(p, now)
 
     def after_move(self, p, now):
-        if self.tiger_queue:                                 # the round ended: the tiger first
+        if self.tiger_queue:                                 # the round ended: the tigers first
             self.busy = True
-            self.after(now, TIGER_PAUSE, self.tiger_roll)
+            self.disp = tuple(list(x) for x in self.tiger_from)   # the board as the round ended, played forward
+            self.after(now, TIGER_PAUSE, self.tiger_next)
             return
         self.disp = None
         if not self.st.over and self.st.cur != p:
@@ -493,17 +504,35 @@ class Game(BaseGame):
                 self.start_scan()
         self.schedule_ai(now)
 
-    def tiger_roll(self, now):
-        spot, who, r, ch = self.tiger_queue.pop(0)
+    def tiger_next(self, now):
+        ev = self.tiger_queue.pop(0)
+        if ev[0] == "step":
+            self.tiger_mark = -1
+            self.disp[4][ev[1]] = ev[2]
+            self.after(now, TIGER_STEP, self.tiger_done)
+            return
+        spot, who, r, ch = ev[1:]
         self.tiger_mark = spot
         bg = [TIGER if i < ch else self.seats[who].color for i in range(E.BAR)]
         self.roll = (who, ch, dice.Roll(now, r, E.BAR, laps=0), bg)     # quicker than a player's: there can be many
-        self.after(now, self.roll[2].duration + 0.3, self.tiger_done)
+        self.after(now, self.roll[2].duration + 0.3, lambda n: self.tiger_bit(spot, who, r <= ch, n))
+
+    def tiger_bit(self, spot, who, hit, now):
+        self.roll = None
+        if hit:                                              # show the light it took
+            owner, units, truck = self.disp[0], self.disp[1], self.disp[2]
+            if spot == E.CENTER:
+                truck[who] -= 1
+            else:
+                units[spot] -= 1
+                if units[spot] == 0:
+                    owner[spot] = -1
+                    units[spot] = self.st.s["regrow"]
+        self.tiger_done(now)
 
     def tiger_done(self, now):
-        self.roll = None
         if self.tiger_queue:
-            self.after(now, 0.3, self.tiger_roll)
+            self.after(now, 0.3 if self.tiger_queue[0][0] == "bite" else 0, self.tiger_next)
             return
         self.tiger_mark = -1
         self.busy = False
@@ -556,8 +585,7 @@ class Game(BaseGame):
             self.setup_event(c, a, now)
 
     def make_view(self):
-        st = self.st
-        return (list(st.owner), list(st.units), list(st.truck), [pl.bar for pl in st.players], list(st.tigers))
+        return E.board(self.st)
 
     def draw(self, lights, now):
         if self.phase == "play":
@@ -565,12 +593,12 @@ class Game(BaseGame):
         else:
             self.draw_setup(lights)
 
-    def draw_jungle(self, lights, units, owner, tigers, skip=()):
+    def draw_jungle(self, lights, units, owner, tigers, skip=(), glow=()):
         for t in range(E.N):
             if t in skip or t == E.CENTER or owner[t] >= 0:
                 continue
             if t in tigers:
-                lights.spot(t, [TIGER] * 3, PROWL)
+                lights.spot(t, [TIGER] * 3, CURSOR if t in glow else PROWL)
             elif units[t] > 0:
                 draw_spot(lights, t, units[t], JUNGLE)
 
@@ -599,7 +627,7 @@ class Game(BaseGame):
             self.view = self.make_view()
         owner, units, truck, bars, tigers = self.disp or self.view
         glow = self.glow_set()
-        self.draw_jungle(lights, units, owner, tigers)
+        self.draw_jungle(lights, units, owner, tigers, glow=glow)
         for t in range(E.N):
             if t == E.CENTER:
                 continue
@@ -613,7 +641,7 @@ class Game(BaseGame):
                 continue
             effect = WINNER if st.over and st.winner == o else (TIGER_MARK if t == self.tiger_mark else None)
             draw_spot(lights, t, units[t], self.seats[o].color, t in glow, effect)
-        self.draw_truck(lights, now, truck, units[E.CENTER], E.CENTER in glow)
+        self.draw_truck(lights, now, truck, units[E.CENTER], E.CENTER in glow, E.CENTER in tigers)
         for p, s in enumerate(self.seats):
             r = self.roll
             if r is not None and r[0] == p:
@@ -631,12 +659,14 @@ class Game(BaseGame):
                        for i in range(E.BAR)]
             lights.bar(s.seat, out, effect)
 
-    def draw_truck(self, lights, now, truck, jungle, glow):
+    def draw_truck(self, lights, now, truck, jungle, glow, tiger=False):
         st = self.st
         on = [p for p in range(len(truck)) if truck[p] > 0]
         mark = TIGER_MARK if self.tiger_mark == E.CENTER else None
         if st.over and st.winner >= 0 and truck[st.winner] > 0:
             draw_spot(lights, E.CENTER, truck[st.winner], self.seats[st.winner].color, False, WINNER)
+        elif tiger:
+            lights.spot(E.CENTER, [TIGER] * 3, CURSOR if glow else PROWL)
         elif on:
             p = on[int(now / TRUCK_TURN) % len(on)]
             draw_spot(lights, E.CENTER, truck[p], self.seats[p].color, glow, mark)
@@ -649,7 +679,7 @@ class Game(BaseGame):
 
     def glow_set(self):
         st = self.st
-        if st.over or self.roll is not None or self.tiger_queue:
+        if st.over or self.roll is not None or self.tiger_mark != -1 or self.tiger_queue or self.disp is not None:
             return ()
         fr = self.cur().frame
         if self.cur().ctrl is not None and self.level_ui == "row":
