@@ -6,7 +6,10 @@
 #   lights.spot("B3", colors)           3 (r, g, b), left to right as seen from seat 1
 #   lights.line("B4", color)            one line LED (small board; nothing on the large board)
 #   lights.between("B3", "B4", color)   the line LED between two hexes side by side in a row (here line B4)
-#   lights.bar(seat, colors)            10 (r, g, b) for seat 1-6; light 0 is LED 1, at that player's left
+#   lights.bar(seat, colors)            10 (r, g, b) for seat 1-6; light 0 is LED 1, at that player's left. Drawn
+#                                       on the bar that seat has: its own, unless a controller carrying a bar sits
+#                                       there (carry(), set by the lobby)
+#   lights.bar_at(n, colors)            bar n itself (1-6, its place in BARS_AT), whichever seat has it
 #   lights.has_lines                    True on the small board
 #   lights.fill(color), lights.show()
 # Colors are (r, g, b), each 0-255; lower is dimmer. spot, bar and line also take an effect (fx.py): one for the
@@ -109,6 +112,7 @@ class Lights:
         self.brightness = config.BRIGHTNESS      # overall, before the power cap (set_brightness)
         self.now = 0.0                           # the board's clock, for effects; the host sets it every frame
         self.has_lines = LINES > 0
+        self.seat_bar = list(range(1, SEATS + 1))   # the bar each seat draws on (carry)
         if pixels is None:
             # The driver always runs at full brightness: show() dims, which saves a whole second copy of the
             # pixels that the LED libraries keep when their own brightness isn't 1.
@@ -148,7 +152,22 @@ class Lights:
 
     def bar(self, seat, colors, effect=None):
         """Seat 1-6's bar: colors is 10 (r, g, b), light 0 = LED 1, at that player's left."""
-        self._group(ISLAND + (seat - 1) * BAR, colors, effect, BAR)
+        self._group(ISLAND + (self.seat_bar[seat - 1] - 1) * BAR, colors, effect, BAR)
+
+    def bar_at(self, n, colors, effect=None):
+        """Bar n (1-6, its place in config.BARS_AT), whichever seat has it: for drawing by place, like the clock's
+        ring."""
+        self._group(ISLAND + (n - 1) * BAR, colors, effect, BAR)
+
+    def carry(self, bars):
+        """Bars that go with their controllers: {seat: bar} draws that seat on that bar (1-6, its place in
+        config.BARS_AT), and the seat whose bar it was on the seat's own. Seats and bars must all differ. Every
+        other seat draws on its own bar; {} puts them all back."""
+        m = list(range(1, SEATS + 1))
+        for s, b in bars.items():
+            j = m.index(b)
+            m[j], m[s - 1] = m[s - 1], m[j]       # (leaves the seats already placed alone, in any order)
+        self.seat_bar = m
 
     def line(self, k, color, effect=None):
         """Line k's LED ("B1" = row B's left end, or its number). Nothing on the large board."""

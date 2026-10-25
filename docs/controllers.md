@@ -36,10 +36,15 @@ controllers and actions ([making-games.md](making-games.md)).
 A controller is a list of inputs plus a seat: `{"name": ..., "seat": 1, "inputs": [...]}`. `seat` is the side it
 sits at (1–6, clockwise from the bottom), or `None` if its player chooses a side when joining.
 
-The default, a rotary encoder and one button:
+A controller can carry a bar of its own: `"bar": 1` names the bar built into it (its place in `BARS_AT`). The bar
+goes with the controller, so it always shows its player's lights. If the player picks a different seat in a game's
+setup, that seat is drawn on the controller's bar, and the bar that seat had takes over the seat the controller came
+from. Left out, the first wired controller carries bar 1 and the rest carry none.
+
+The default, a rotary encoder and one button, with bar 1:
 
 ```python
-{"name": "wired", "seat": 1, "inputs": [
+{"name": "wired", "seat": 1, "bar": 1, "inputs": [
     {"type": "encoder", "a": "D24", "b": "D25"},          # turn = move
     {"type": "button", "pin": "D9", "does": "pick"},      # encoder push
     {"type": "button", "pin": "D10", "does": "back"},

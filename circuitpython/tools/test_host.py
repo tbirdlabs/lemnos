@@ -436,6 +436,68 @@ def hosting():
     check("paint: a controller that leaves loses its cursor", pad not in g.players)
 
 
+def carried_bars():
+    """A bar built into a controller goes with it: lights.carry swaps seats' bars, and the lobby takes a carried bar
+    to the seat its player picks (Island Rush's seat field), so the bar in their hands shows their seat."""
+    lt = leds.Lights()
+    first = lambda n: leds.ISLAND + (n - 1) * leds.BAR      # bar n's LED 1, logically
+
+    def on(n):
+        return lt.raw[first(n) * 3] == 10
+
+    lt.carry({4: 1})
+    lt.bar(4, [(10, 0, 0)] * leds.BAR)
+    check("carry: seat 4 drawn on bar 1", on(1) and not on(4))
+    lt.fill(leds.OFF)
+    lt.bar(1, [(10, 0, 0)] * leds.BAR)
+    check("carry: and seat 1 on bar 4", on(4) and not on(1))
+    lt.fill(leds.OFF)
+    lt.bar_at(1, [(10, 0, 0)] * leds.BAR)
+    check("carry: bar_at draws by place", on(1) and not on(4))
+    lt.carry({2: 1, 3: 2})
+    check("carry: two at once, the others keep their own", lt.seat_bar == [3, 1, 2, 4, 5, 6], lt.seat_bar)
+    lt.carry({3: 2, 2: 1})
+    check("carry: in any order", lt.seat_bar == [3, 1, 2, 4, 5, 6], lt.seat_bar)
+    lt.carry({})
+    check("carry: none, all their own", lt.seat_bar == [1, 2, 3, 4, 5, 6])
+    # through the host and the lobby
+    h = host.Host(host.load_game("rush"), host.Board(leds.Lights(), Controls(hardware=False)))
+    ctl = h.board.controls
+    w = ctl.get("w", "wired", 1, ("move", "move_back", "pick", "back"))
+    w.bar = 1
+    pad = ctl.get("pad", "pad", None, ("move", "pick", "back"))
+    h.frame(0.0)
+    lob = h.lobby
+    check("lobby: a carried bar at its own seat", h.board.lights.seat_bar == [1, 2, 3, 4, 5, 6], h.board.lights.seat_bar)
+    ctl.feed(w, "pick")                                   # join, then choose a seat
+    h.frame(0.1)
+    t = 0.1
+    for _ in range(8):
+        if lob.choices.get("seat:w") == "4":
+            break
+        ctl.feed(w, "move")
+        t += 0.1
+        h.frame(t)
+    check("lobby: seat 4 chosen", lob.choices.get("seat:w") == "4", lob.choices)
+    m = h.board.lights.seat_bar
+    check("lobby: the controller's bar shows seat 4, and bar 4 seat 1", m[3] == 1 and m[0] == 4, m)
+    check("lobby: its field is drawn on its own bar", any(h.board.lights.raw[first(1) * 3:(first(1) + leds.BAR) * 3]))
+    ctl.feed(pad, "pick")                                 # a controller without a bar changes nothing
+    h.frame(t + 0.1)
+    check("lobby: a controller without a bar", h.board.lights.seat_bar[3] == 1, h.board.lights.seat_bar)
+    ctl.feed(w, "back")
+    ctl.feed(w, "back")
+    h.frame(t + 0.2)
+    check("lobby: left, the bar's back at its own seat", w not in lob.joined and h.board.lights.seat_bar[0] == 1,
+          (lob.joined, h.board.lights.seat_bar))
+    # set up on the USB page instead: the seat chosen there
+    msg = h.apply("setup", {"players": "2", "seat:w": "4", "seat:pad": "out"}, t + 0.3)
+    h.frame(t + 0.4)
+    m = h.board.lights.seat_bar
+    check("page: started at seat 4", msg is None and lob.state == "play" and lob.joined == [w], (msg, lob.state))
+    check("page: the controller's bar shows seat 4", m[3] == 1 and m[0] == 4, m)
+
+
 def test_pattern():
     """games/testpattern.py on both boards, through the host to a pixel object: red lights the LEDs one at a time,
     in place order (rows A-G left to right as seen from seat 1, then bars 1-6 LED 1-10), each on the strip address
@@ -671,6 +733,7 @@ if __name__ == "__main__":
     held_buttons()
     plug_ins()
     hosting()
+    carried_bars()
     test_pattern()
     wall_time()
     console()

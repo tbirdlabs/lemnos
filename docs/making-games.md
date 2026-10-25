@@ -122,8 +122,12 @@ lights.spot("B3", [c0, c1, c2])         # a hex's 3 lights, left to right as see
 lights.line("B4", color)                # a line's LED (small board; nothing on the large board)
 lights.between("B3", "B4", color)       # the line between two hexes side by side (here line B4)
 lights.bar(seat, [c0, ... c9])          # a seat's 10-light bar; c0 is LED 1, at that player's left
+lights.bar_at(n, [c0, ... c9])          # bar n by place (BARS_AT), whoever sits there: for a picture round the board
 lights.has_lines                        # True on the small board
 ```
+
+A bar can be built into a controller and go with it ([controllers.md](controllers.md)): `lights.bar(seat, …)` then
+lands on whichever bar that seat's player holds, so draw players' bars by seat and the board does the rest.
 
 Hexes and lines can be given by number too (`lights.spot(t, …)` in a loop). The same game runs on both boards: on
 the large one, drawing a line does nothing. If a game shows something important with lines, check

@@ -2,7 +2,7 @@
 #
 # Red fills the board one LED at a time, then green over it, then blue, and around again. The order is by place, not
 # by strip: rows A to G (farthest from seat 1 first), each left to right as seen from seat 1 (the line LEDs too, on
-# the small board), then each seat's bar, seats 1 to 6, LED 1 to 10 (left to right as that player sees it). So a
+# the small board), then each bar, 1 to 6 as in BARS_AT, LED 1 to 10 (left to right as its player sees it). So a
 # light that comes on out of turn is mapped wrong (a row running backward, a swapped channel), one that stays dark
 # or the wrong color in a fill is a dead LED or color, and the board full of each color in turn shows all three.
 #
@@ -52,7 +52,7 @@ def describe(k):
         what = "hex %s, %s light" % (G.name(t), WHICH[i])
     elif k < L.FIRST_LINE:
         s, i = divmod(k - L.ISLAND, G.BAR_LEDS)
-        what = "seat %d bar, LED %d" % (s + 1, i + 1)
+        what = "bar %d, LED %d" % (s + 1, i + 1)
     else:
         what = "line %s" % G.line_name(k - L.FIRST_LINE)
     p = L.PHYS[k]
@@ -119,6 +119,6 @@ class Game(BaseGame):
             lights.spot(t, col[t * G.LEDS_PER_SPOT:(t + 1) * G.LEDS_PER_SPOT])
         for s in range(G.SEATS):
             b = L.ISLAND + s * G.BAR_LEDS
-            lights.bar(s + 1, col[b:b + G.BAR_LEDS])
+            lights.bar_at(s + 1, col[b:b + G.BAR_LEDS])     # bar by place (BARS_AT), not by who sits there
         for k in range(L.LINES):
             lights.line(k, col[L.FIRST_LINE + k])

@@ -326,6 +326,7 @@ class Lobby:
     def started(self, choices):
         """A game began with these choices (on the board, or from the USB page: then whoever has a player field that
         isn't sitting out played)."""
+        self.choices = dict(choices)     # (from the page: its choices, so the seats are the ones being played)
         self.last = dict(choices)
         outs = [f for f in self.fields if f.get("player") is not None and "out" in f]
         if outs:
@@ -448,9 +449,10 @@ class Lobby:
 
     # ---- drawing ----
     def draw(self, lights, now):
+        self.carry_bars(lights)
         if self.state == "confirm":
             self.game.draw(lights, now)
-            seat = self.bar_seats().get(self.asker.id, self.asker.seat or 1)
+            seat = self.seat_of(self.asker)
             lights.bar(seat, [WHITE if i == self.at_light else RED if i == self.red else GREEN for i in range(BAR)],
                        [FLASH if i == self.at_light else None for i in range(BAR)])
         elif self.state in ("play", "end"):
@@ -458,7 +460,7 @@ class Lobby:
             if self.state == "end":
                 for c in self.controllers:
                     if self.stop.get(c.id):
-                        lights.bar(c.seat or 1, [dim(RED, 4)] * BAR)
+                        lights.bar(self.seat_of(c), [dim(RED, 4)] * BAR)
         elif self.state == "games":
             self.draw_games(lights, now)
         else:
@@ -488,6 +490,24 @@ class Lobby:
             used.append(out[c.id])
         return out
 
+    def seat_of(self, c, seats=None):
+        """The seat whose bar is c's player's: where it plays once joined (bar_seats), else its controller's seat."""
+        if seats is None:
+            seats = self.bar_seats()
+        return seats.get(c.id, c.seat or 1)
+
+    def carry_bars(self, lights):
+        """A controller carrying a bar (Controller.bar) takes it to the seat it plays at, so the bar in the player's
+        hands shows their own seat (lights.carry). Joined players first; a seat or bar already taken stays put."""
+        seats = self.bar_seats()
+        out = {}
+        for c in self.joined + [c for c in self.controllers if c not in self.joined]:
+            if c.bar and c.connected:
+                s = self.seat_of(c, seats)
+                if s not in out and c.bar not in out.values():
+                    out[s] = c.bar
+        lights.carry(out)
+
     def draw_setup(self, lights, now):
         seats = self.bar_seats()
         for c in self.joined:
@@ -496,7 +516,7 @@ class Lobby:
         self.game.preview(lights, now, self)
         if not self.joined:
             for c in self.controllers:
-                lights.bar(c.seat or 1, [DIM] * BAR, BREATHE)
+                lights.bar(self.seat_of(c, seats), [DIM] * BAR, BREATHE)
             return
         for c in self.joined:
             seat = seats[c.id]
@@ -548,7 +568,7 @@ class Lobby:
             for t in G.neighbors(G.CENTER):
                 lights.spot(t, [DIM] * 3)
             lights.spot(G.CENTER, [WHITE] * 3, BREATHE)
-        seat = self.chooser.seat or 1
+        seat = self.seat_of(self.chooser)
         if self.stop.get(self.chooser.id):
             lights.bar(seat, [dim(RED, 4)] * BAR)
             return

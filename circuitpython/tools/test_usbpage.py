@@ -94,7 +94,7 @@ def hello():
     ser.text = "\n!HELLO page 1\n"
     h.frame(0.025)
     got = taken(out)
-    check("page: HELLO answer", got[:2] == ["HELLO 2026.10.20", "BOARD %s %d" % (config.BOARD, COUNT)], got)
+    check("page: HELLO answer", got[:2] == ["HELLO 2026.10.24", "BOARD %s %d" % (config.BOARD, COUNT)], got)
     check("page: games", len(got) > 2 and got[2].startswith("GAMES ") and "salient" in got[2].split(), got)
     check("page: config's game and brightness", "STATE default_game " + config.GAME in got and
           "STATE default_brightness %g" % config.BRIGHTNESS in got, got)

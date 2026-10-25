@@ -24,6 +24,8 @@ class Controller:
     seat        the seat it sits at (1-6), or None if its player chooses one in the game
     can         the set of actions it can send (actions.py); may change, e.g. when an I2C pad says it's one switch
     connected   False after it went away (Game.controller_removed) until it sends again
+    bar         the bar it carries (1-6, its place in config.BARS_AT), or None: the bar goes where its player sits
+                (the lobby sets lights.carry), so it always shows that player's own lights
     """
 
     def __init__(self, cid, name, seat, can):
@@ -32,9 +34,16 @@ class Controller:
         self.seat = seat
         self.can = set(can)
         self.connected = True
+        self.bar = None
 
     def __repr__(self):
         return "<%s seat %s>" % (self.name, self.seat)
+
+
+def wired_bar(k, spec):
+    """The bar wired controller k (its place in config.CONTROLLERS) carries: its "bar", or by default bar 1 for the
+    first and none for the rest."""
+    return spec.get("bar", 1 if k == 0 else None)
 
 
 ADDED = "added"
@@ -69,6 +78,7 @@ class Controls:
             return
         for k, spec in enumerate(config.CONTROLLERS):
             c = self.get("wired%d" % k, spec.get("name", "wired %d" % (k + 1)), spec.get("seat"), ())
+            c.bar = wired_bar(k, spec)
             for inp in spec["inputs"]:
                 try:
                     src = plugins.find(inp["type"], INPUTS, "input type")(inp)

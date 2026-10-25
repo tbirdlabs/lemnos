@@ -43,6 +43,8 @@ EFFECT_TIME_SCALE = 1.0       # every light effect's cycle time is multiplied by
 # ---- Controllers ----
 # Each controller is one player's set of inputs. "seat" is where it sits (1-6), or None to choose a side when
 # joining; a one-player game always seats its player at the controller's seat (None = seat 1).
+# "bar" is the bar built into the controller (1-6, its place in BARS_AT), or None: it shows its player's lights at
+# whatever seat they choose. Left out, the first controller carries bar 1 and the rest none.
 # Every input produces some of the actions move, move_back, pick, back, up, down, left, right.
 # Input types (any mix, any number per controller; gamehost/inputs.py, or your own as "module.Class"):
 #   button   {"type": "button", "pin": "D10", "does": "back"}           optional "hold": "back", "hold_s": 0.8
@@ -54,8 +56,8 @@ EFFECT_TIME_SCALE = 1.0       # every light effect's cycle time is multiplied by
 #            several switches on one analog pin through resistors; bands are volts, nothing pressed = none
 # Switches short the pin to ground (pull-ups on). An encoder's two pins must be consecutive GPIOs.
 CONTROLLERS = [
-    # The default wired controller: a rotary encoder (turn = move, push = pick) and one button (back).
-    {"name": "wired", "seat": 1, "inputs": [
+    # The default wired controller: a rotary encoder (turn = move, push = pick) and one button (back), with bar 1.
+    {"name": "wired", "seat": 1, "bar": 1, "inputs": [
         {"type": "encoder", "a": "D24", "b": "D25"},
         {"type": "button", "pin": "D9", "does": "pick"},
         {"type": "button", "pin": "D10", "does": "back"},

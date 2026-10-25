@@ -130,6 +130,9 @@ The default wired controller, at seat 1:
 | Encoder push | D9 | Pick |
 | Button | D10 | Back |
 
+Its bar (bar 1, on channel 1) is built into the controller and goes with it: if its player picks another seat in a
+game's setup, that seat's lights are drawn on this bar (`"bar"` in `config.py`; [controllers.md](controllers.md)).
+
 Switches short the pin to ground (internal pull-ups are on). An encoder's two pins must be consecutive GPIOs
 (the RP2040 encoder driver needs that); D24/D25, D9/D10, D11/D12, SCK/MO (GPIO14/15) and A0/A1 all are.
 

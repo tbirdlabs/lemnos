@@ -106,11 +106,11 @@ def link():
     """HELLO until the radio answers; slots become controllers; noise is ignored."""
     h, uart, radio = with_radio()
     h.frame(0.0)
-    check("link: HELLO at start", uart.sent() == ["HELLO 2026.10.20"])
+    check("link: HELLO at start", uart.sent() == ["HELLO 2026.10.24"])
     run_frames(h, 0.025, 2.9)
     check("link: not again at once", uart.sent() == [])
     run_frames(h, 3.0, 3.1)
-    check("link: again after 3 s", uart.sent() == ["HELLO 2026.10.20"])
+    check("link: again after 3 s", uart.sent() == ["HELLO 2026.10.24"])
 
     # noise: a floating RX pin, half a line, junk, things out of range
     uart.feed(b"\x00\xff\xfe\x80garbage\n")

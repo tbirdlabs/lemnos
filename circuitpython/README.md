@@ -24,6 +24,7 @@ They meet in one small interface, the `Game` class in [`gamehost/game.py`](gameh
 | `gamehost/actions.py` | The actions controllers send: move, move back, pick, back, up, down, left, right. |
 | `gamehost/controls.py` | Controllers: the inputs and hubs below, turned into (controller, action). |
 | `gamehost/inputs.py` | Wired inputs: button, encoder, one-switch scan, resistor ladder (`docs/controllers.md`). |
+| `gamehost/ctltest.py` | Wired controller test, without the host: each controller's encoder adds and takes lights off its seat's bar, pick and back step its color, and the console prints every pin change and encoder count. From the REPL: `from gamehost import ctltest; ctltest.main()`. |
 | `gamehost/hubs.py` | Sources with their own controllers: I2C controller boards, the serial console (which also takes typed commands for the game). |
 | `gamehost/link.py` | The text protocol the radio and the USB page share (IN, CTL, TIME, SET, HELLO lines). |
 | `gamehost/usbpage.py` | The USB page's side on the board: answers it over the serial console, sends it the lights and what changed. |

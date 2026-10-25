@@ -246,5 +246,5 @@ class Game(BaseGame):
         for k in range(len(self.line_colors)):
             lights.line(k, self.line_colors[k])
         ring = self.ring(ms)
-        for seat in range(1, G.SEATS + 1):
-            lights.bar(seat, [ring[j] for j in SEAT_RING[seat]])
+        for seat in range(1, G.SEATS + 1):          # by place: each bar where it is, whoever holds it
+            lights.bar_at(seat, [ring[j] for j in SEAT_RING[seat]])
