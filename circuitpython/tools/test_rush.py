@@ -1,6 +1,6 @@
 # Desktop test of Island Rush (games/rush): the engine's rules, and the board's game through the host's interfaces
-# with a fake clock. Human players are driven only by controller actions (three buttons with row-then-spot
-# scanning, one switch with way-out stops, or a D-pad), each wanting the move the computer player would choose;
+# with a fake clock. Human players are driven only by controller actions (three buttons or one switch stepping
+# through everything there is to pick, or a D-pad), each wanting the move the computer player would choose;
 # every move must land as picked, and games must end with a winner. Also setup on the board (the host's lobby), from
 # the USB page, and what happens after a game.
 #   py -3 tools/test_rush.py
@@ -49,49 +49,37 @@ def send(g, clk, c, a):
 
 
 def drive_scan(g, clk, c, verb, tile):
+    """Move steps through everything there is to pick (then the bar), pick picks; a wrong aim is left with back, or
+    by moving on."""
     st = g.st
     has_back = "back" in c.can
-    fr = g.cur().frame
+    target = G.BARPOS if verb == E.V_END else tile
     n0 = len(st.log)
     for _ in range(400):
         if len(st.log) > n0:
             return
-        want_row = G.BARROW if verb == E.V_END else fr.row[tile]
-        if g.mode_ui == "aim":
-            send(g, clk, c, "pick" if g.aim == tile else ("back" if has_back else "move"))
-        elif g.level_ui == "spot":
-            in_row = g.cursor not in (G.BARPOS, G.OUT) and fr.row[g.cursor] == want_row
-            if in_row and g.cursor == tile:
-                send(g, clk, c, "pick")
-            elif in_row:
-                send(g, clk, c, "move")
-            elif g.cursor == G.OUT:
-                send(g, clk, c, "pick")
-            elif has_back:
-                send(g, clk, c, "back")
-            else:
-                send(g, clk, c, "move")
+        if g.mode_ui == "aim" and g.aim != tile:
+            send(g, clk, c, "back" if has_back else "move")
+        elif g.cursor == target:
+            send(g, clk, c, "pick")
         else:
-            send(g, clk, c, "pick" if g.row == want_row else "move")
+            send(g, clk, c, "move")
     raise RuntimeError("scan driver stuck: %d %d" % (verb, tile))
 
 
 def drive_arrows(g, clk, c, verb, tile):
     st = g.st
     fr = g.cur().frame
+    target = G.BARPOS if verb == E.V_END else tile
     n0 = len(st.log)
     for _ in range(400):
         if len(st.log) > n0:
             return
-        target = G.BARPOS if verb == E.V_END else tile
         if g.mode_ui == "aim" and g.aim != tile:
             send(g, clk, c, "back")
-        elif g.level_ui == "spot" and g.cursor == target:
+        elif g.cursor == target:
             send(g, clk, c, "pick")
         else:
-            if g.level_ui != "spot" or g.cursor < 0:
-                send(g, clk, c, "up")            # leave the row level onto a spot
-                continue
             nxt = fr.path(g.cursor, target)[0]
             for key in ("left", "right", "up", "down"):
                 if fr.arrow(g.cursor, key) == nxt:
@@ -131,6 +119,46 @@ def play_through(name, g, clk, drivers, seed):
             break
         clk.tick()
     check(name + ": game over with a winner", st.over and st.winner >= 0 and not g.busy, (st.round, st.winner, g.busy))
+
+
+def stepping():
+    """Move steps through every spot there is something to do with, in the player's reading order, then the bar,
+    and round again, both ways; a controller without back changes its mind by moving on."""
+    b, h, clk = new_ui()
+    c = b.controls.get("s", "switch", 1, ("move", "pick"))
+    clk.tick(2)
+    msg = h.apply("setup", {"players": "2", "seat:s": "1", "color:s": "0"}, clk.t)
+    clk.tick(2)
+    g = h.game
+    check("stepping: the switch plays first", msg is None and g.human() and g.cur().ctrl is c, (msg, g.st and g.st.cur))
+    items = g.items()
+    fr = g.cur().frame
+    spots = [t for t in items if t != G.BARPOS]
+    check("stepping: reading order, then the bar", items[-1] == G.BARPOS and
+          spots == sorted(spots, key=lambda t: fr.order[t]), items)
+    g.st.log = []
+    first = g.cur().pos if g.cur().pos in items else items[0]
+    check("stepping: starts on the player's own spot, else the first", g.cursor == first, (g.cursor, g.cur().pos))
+    seen = []
+    for _ in items:
+        seen.append(g.cursor)
+        send(g, clk, c, "move")
+    check("stepping: every one once, then round again", sorted(seen) == sorted(items) and g.cursor == seen[0],
+          (seen, items))
+    i = items.index(g.cursor)
+    g.play_event(c, "move_back", clk.t)
+    check("stepping: move back goes the other way", g.cursor == items[i - 1], (g.cursor, items[i - 1]))
+    aimable = [t for t in spots if not E.can_add(g.st, g.st.cur, t)]
+    check("stepping: something to aim at", aimable, items)
+    if aimable:
+        while g.cursor != aimable[0]:
+            send(g, clk, c, "move")
+        n = len(g.st.log)
+        send(g, clk, c, "pick")
+        check("stepping: pick shows the chance", g.mode_ui == "aim" and g.aim == aimable[0], g.mode_ui)
+        send(g, clk, c, "move")
+        check("stepping: moving on drops it, nothing done", g.mode_ui == "board" and len(g.st.log) == n and
+              g.cursor == items[(items.index(aimable[0]) + 1) % len(items)], (g.mode_ui, g.st.log[n:]))
 
 
 def engine_rules():
@@ -554,6 +582,7 @@ def hosted():
 
 if __name__ == "__main__":
     engine_rules()
+    stepping()
     board_setup("2 players, scan and arrows", [(1, 1, "scan"), (4, 4, "arrows")], 2, 1)
     board_setup("1 switch vs 3 computers", [(2, 2, "switch")], 4, 2)
     board_setup("3 humans + 3 computers", [(1, 1, "arrows"), (3, 3, "scan"), (5, 5, "switch")], 6, 3)

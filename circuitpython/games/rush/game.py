@@ -8,12 +8,12 @@
 # the left end of its side, as its player faces the board; the island shows it, white blinking) and then a color;
 # the first to join then sets how many play in all, 2 to 6 (the computer plays the rest, spread round the board).
 #
-# Playing, as in Salient: each player reads the island from their own side. Move steps through the rows that hold
-# something you can pick, then your bar; pick opens a row, move steps through its spots, pick picks; back returns to
-# the rows. Arrows move the cursor directly. A controller without back gets a way-out stop at the end of each row.
-# Pick your own spot to add a light; pick jungle (or empty ground, the truck, a tiger or another player's spot) next
-# to yours to see your chance on your bar, and pick again to go. Pick your bar to end your turn; it also ends when your
-# bar is empty.
+# Playing: each player reads the island from their own side. Move and move back step through every spot you can do
+# something with, in reading order (far to near, left to right, as you see it), then your bar, and round again;
+# there are only ever a few, all around your own spots, so there are no rows to open. Arrows move the cursor
+# directly. Pick your own spot to add a light; pick jungle (or empty ground, the truck, a tiger or another player's
+# spot) next to yours to see your chance on your bar, and pick again to go; moving on (or back) changes your mind, so
+# no controller needs back. Pick your bar to end your turn; it also ends when your bar is empty.
 #
 # The lights: jungle is green (1-3 lights, as players' lights), empty ground dark, the tiger orange lights running
 # round its spot, the truck a slow white glow, or its holder's lights. At the end of a round each
@@ -39,8 +39,6 @@ NAMES = ("red", "blue", "yellow", "purple", "cyan", "pink")
 LIT = ((False, False, False), (False, True, False), (True, False, True), (True, True, True))   # 0-3 lights
 
 BARPOS = geometry.ON_BAR
-BARROW = 7
-OUT = -2
 FRAMES = geometry.VIEWS
 
 CURSOR = fx.flash(0.5, WHITE, duty=0.4)
@@ -285,9 +283,9 @@ class Game(BaseGame):
         self._items = None
 
     def start_scan(self):
-        s = self.cur()
-        self.level_ui = "row"
-        self.row = BARROW if s.pos == BARPOS else s.frame.row[s.pos]
+        """The cursor on the player's own spot, or else the first thing they can pick."""
+        items = self.items()
+        self.cursor = self.cur().pos if self.cur().pos in items else items[0]
 
     def items(self):
         if self._items is None:
@@ -299,22 +297,6 @@ class Game(BaseGame):
             out.append(BARPOS)
             self._items = out
         return self._items
-
-    def row_list(self, items):
-        fr = self.cur().frame
-        rows = []
-        for t in items:
-            if t != BARPOS and fr.row[t] not in rows:
-                rows.append(fr.row[t])
-        rows.append(BARROW)
-        return rows
-
-    def row_spots(self, items, r):
-        fr = self.cur().frame
-        return [t for t in items if t != BARPOS and fr.row[t] == r]
-
-    def can_back(self):
-        return "back" in self.cur().ctrl.can
 
     @staticmethod
     def step_in(lst, cur, d):
@@ -330,25 +312,11 @@ class Game(BaseGame):
         fr = self.cur().frame
         items = self.items()
         if a == "back":
-            if self.mode_ui == "aim":
-                self.mode_ui = "board"
-                self.aim = -1
-            elif self.level_ui == "spot":
-                self.to_rows()
+            self.mode_ui = "board"
+            self.aim = -1
         elif a == "pick":
-            if self.level_ui == "row":
-                if self.row == BARROW:
-                    self.act(E.V_END, -1, now)
-                else:
-                    rs = self.row_spots(items, self.row)
-                    if rs:
-                        self.level_ui = "spot"
-                        self.cursor = rs[0]
-                return
             t = self.cursor
-            if t == OUT:
-                self.level_ui = "row"
-            elif self.mode_ui == "aim":
+            if self.mode_ui == "aim":
                 if t == self.aim:
                     self.act(E.V_CLEAR, t, now)
             elif t == BARPOS:
@@ -362,37 +330,9 @@ class Game(BaseGame):
             self.mode_ui = "board"
             self.aim = -1
             if a in ("move", "move_back"):
-                d = 1 if a == "move" else -1
-                spots = []
-                if self.level_ui == "spot" and self.cursor not in (BARPOS, OUT):
-                    self.row = fr.row[self.cursor]
-                if self.level_ui == "spot" and self.cursor != BARPOS:
-                    spots = self.row_spots(items, self.row)
-                if spots and not self.can_back():
-                    spots = spots + [OUT]
-                if not spots:
-                    if self.level_ui == "spot":
-                        self.to_rows()
-                    self.row = self.step_in(self.row_list(items), self.row, d)
-                else:
-                    self.cursor = self.step_in(spots, self.cursor, d)
+                self.cursor = self.step_in(items, self.cursor, 1 if a == "move" else -1)
             else:                                           # arrows
-                if self.level_ui == "row" or self.cursor == OUT:
-                    if self.row == BARROW:
-                        self.cursor = BARPOS
-                    elif self.cursor in (BARPOS, OUT) or fr.row[self.cursor] != self.row:
-                        rw = fr.rows[self.row]
-                        self.cursor = rw[len(rw) // 2]
-                    self.level_ui = "spot"
                 self.cursor = fr.arrow(self.cursor, a)
-
-    def to_rows(self):
-        fr = self.cur().frame
-        self.level_ui = "row"
-        if self.cursor == BARPOS:
-            self.row = BARROW
-        elif self.cursor != OUT:
-            self.row = fr.row[self.cursor]
 
     # ---- doing a move: a clearing roll runs the white light along the bar over the chance ----
     def act(self, verb, t, now):
@@ -446,7 +386,7 @@ class Game(BaseGame):
             self.cursor = self.cur().pos
             self.start_scan()
         elif not self.st.over and self.human():
-            if self.cursor not in self.items() and self.cursor not in (OUT,):
+            if self.cursor not in self.items():
                 self.start_scan()
         self.schedule_ai(now)
 
@@ -502,7 +442,6 @@ class Game(BaseGame):
         start = self.cursor if self.cursor >= 0 or self.cursor == BARPOS else self.cur().pos
         self.ai_path = self.cur().frame.path(start, target)
         self.ai_move = (verb, t, target)
-        self.level_ui = "spot"
         self.ai_hop(now)
 
     def ai_hop(self, now):
@@ -604,12 +543,4 @@ class Game(BaseGame):
         st = self.st
         if st.over or self.roll is not None or self.tiger_mark != -1 or self.tiger_queue or self.disp is not None:
             return ()
-        fr = self.cur().frame
-        if self.cur().ctrl is not None and self.level_ui == "row":
-            if self.row == BARROW:
-                return (BARPOS,)
-            rs = self.row_spots(self.items(), self.row)
-            return rs if rs else fr.rows[self.row]
-        if self.cursor == OUT:
-            return fr.rows[self.row]
         return (self.cursor,)
