@@ -540,6 +540,66 @@ def forest_fire():
 
 
 
+def fireflies():
+    """games/fireflies.py through the host, on both boards: an evening starts with one firefly, the next answers it
+    from near it just after it glows, more come out until all are, and they fall into step on their own; glows are
+    single LEDs (line LEDs too, on the small board), never faster than the flash limit; pick starts the evening
+    over."""
+    import random
+    import games.fireflies as F
+    random.seed(3)
+    h = host.Host(host.load_game("fireflies"), host.Board(leds.Lights(), Controls(hardware=False)))
+    g = h.game
+    t = 0.0
+    lit = 0
+    for _ in range(200):                                  # 10 s at 20 frames a second
+        t += 0.05
+        h.frame(t)
+        lit = max(lit, sum(1 for k in range(leds.ISLAND) if h.board.lights.raw[k * 3 + 1]))
+    check("fireflies: dusk, one alone", g.swarm.count_out() == 1 and lit == 1, (g.swarm.count_out(), lit))
+    check("fireflies: never quicker than the flash limit", F.RISE + F.FADE < F.PERIOD * (1 - F.SPREAD) and
+          1 / (F.PERIOD * (1 - F.SPREAD)) <= fx.MAX_FLASHES_PER_S)
+    sw = F.Swarm(False, random.Random(2))
+    now = 0.0
+    first = [f for f in range(len(sw.at)) if sw.out[f]][0]
+    while sw.count_out() < 2 and now < 60:
+        now += 0.025
+        sw.run(now, 0.025)
+    two = [f for f in range(len(sw.at)) if sw.out[f] and f != first]
+    check("fireflies: a second one answers", two and now >= F.FIRST_ANSWER_S, now)
+    if two:
+        a = two[0]
+        check("fireflies: from near the first", sw.dist(sw.at[a], sw.at[first]) <= F.NEAR)
+        while sw.lit[a] < 0 and now < 70:
+            now += 0.025
+            sw.run(now, 0.025)
+        gap = sw.lit[a] - sw.lit[first]
+        check("fireflies: just after it glows", F.ANSWER_AFTER[0] - 0.1 <= gap <= F.ANSWER_AFTER[1] + 0.1, gap)
+    while sw.part == "dusk" and now < 600:
+        now += 0.05
+        sw.run(now, 0.05)
+    check("fireflies: all out in a few minutes", sw.part != "dusk" and sw.count_out() == len(sw.at) and
+          120 < now < 300, (sw.part, now))
+    while sw.part == "gathering" and now < 2400:
+        now += 0.05
+        sw.run(now, 0.05)
+    check("fireflies: in step on their own", sw.part == "night", (sw.part, now))
+    while sw.part != "dusk" and now < 3000:
+        now += 0.05
+        sw.run(now, 0.05)
+    check("fireflies: out one by one, dark, then a new evening", sw.part == "dusk" and sw.evenings == 2 and
+          sw.count_out() == 1, (sw.part, sw.evenings))
+    for _ in range(4000):                                 # (on into the next evening)
+        t += 0.05
+        h.frame(t)
+    h.board.controls.feed(h.board.controls.get("k", "keys", 1, ("pick",)), "pick")
+    h.frame(t + 0.05)
+    check("fireflies: pick starts the evening over", g.swarm.part == "dusk" and g.swarm.count_out() == 1)
+    small = F.Swarm(True, random.Random(1))
+    check("fireflies: the small board's line LEDs are places too", len(small.places) == 155 and
+          any(small.places[p][0] is None for p in range(len(small.places))))
+
+
 def test_pattern():
     """games/testpattern.py on both boards, through the host to a pixel object: red lights the LEDs one at a time,
     in place order (rows A-G left to right as seen from seat 1, then bars 1-6 LED 1-10), each on the strip address
@@ -777,6 +837,7 @@ if __name__ == "__main__":
     hosting()
     carried_bars()
     forest_fire()
+    fireflies()
     test_pattern()
     wall_time()
     console()
