@@ -498,6 +498,48 @@ def carried_bars():
     check("page: the controller's bar shows seat 4", m[3] == 1 and m[0] == 4, m)
 
 
+def forest_fire():
+    """games/fire.py through the host: the forest grows and burns on its own, pick calls down lightning (once a
+    second at most), and every bar shows the forest and the fire."""
+    import random
+    import games.fire as F
+    random.seed(5)
+    h = host.Host(host.load_game("fire"), host.Board(leds.Lights(), Controls(hardware=False)))
+    ctl = h.board.controls
+    c = ctl.get("k", "keys", 1, ("move", "pick"))
+    g = h.game
+    t = 0.0
+    burned = green = False
+    for _ in range(2400):                                 # two minutes at 20 frames a second
+        t += 0.05
+        h.frame(t)
+        trees, burning = g.forest.cover()
+        burned = burned or burning > 0
+        raw = h.board.lights.raw
+        green = green or any(raw[k * 3 + 1] > 60 and raw[k * 3] < 60 for k in range(leds.ISLAND))
+    check("fire: the forest shows", green)
+    check("fire: a fire in two minutes on its own", burned)
+    while not g.forest.cover()[0]:                        # (some forest to strike)
+        t += F.TICK_S
+        h.frame(t)
+    before = sum(1 for x in g.forest.fire if x)
+    ctl.feed(c, "pick")
+    ctl.feed(c, "pick")
+    h.frame(t + 0.01)
+    after = sum(1 for x in g.forest.fire if x)
+    check("fire: pick strikes, once", after == before + 1, (before, after))
+    raw = h.board.lights.raw
+    b1 = leds.ISLAND * 3
+    check("fire: the bars show it", any(raw[b1:b1 + leds.BAR * 3]))
+    f = F.Forest(random.Random(1))
+    f.tree = [3] * G.SPOTS
+    f.strike(G.CENTER)
+    for _ in range(60):
+        f.step()
+    check("fire: a fire in thick forest spreads", sum(1 for x in f.tree if x == 3) < G.SPOTS - 6)
+
+
+
 def test_pattern():
     """games/testpattern.py on both boards, through the host to a pixel object: red lights the LEDs one at a time,
     in place order (rows A-G left to right as seen from seat 1, then bars 1-6 LED 1-10), each on the strip address
@@ -734,6 +776,7 @@ if __name__ == "__main__":
     plug_ins()
     hosting()
     carried_bars()
+    forest_fire()
     test_pattern()
     wall_time()
     console()

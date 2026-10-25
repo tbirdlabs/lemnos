@@ -35,6 +35,7 @@ They meet in one small interface, the `Game` class in [`gamehost/game.py`](gameh
 | `games/paint.py` | The example game: paint spots in your color. Also a quick test of every light and controller. |
 | `games/testpattern.py` | Test pattern: red, then green, then blue fill every LED one at a time, left to right; pause and step to print an LED's strip address. |
 | `games/clock.py` | An analog wall clock: the island is the face, the six bars a 60-light minute ring. |
+| `games/fire.py` | Forest fire, an attract screen or wall decoration: the forest grows back and lightning burns it, small fires and now and then a big one; pick calls down lightning. `fire.sim()` runs its rules on a computer to tune them. |
 | `games/salient/` | Salient: `game.py` (the board's side: setup fields, play UI, the computer's turns), `card.py` (its picture in the game picker), `engine.py` (rules), `ai.py`, `difficulty.py`, `rules.py` (generated; don't edit), `bench.py` (bring-up). |
 | `games/rush/` | Island Rush: `game.py` (setup fields, play UI, the tigers on the lights), `engine.py` (rules), `ai.py` (the computer players), `card.py`. |
 | `tools/` | Desktop only, never copied to the board: tests, the JS / Python replay comparison, the profiler, `gen_rules.js`, `deploy.ps1` (puts the software on the board), `settime.ps1` (sets the board's clock from this computer). |

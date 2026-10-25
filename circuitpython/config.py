@@ -4,7 +4,7 @@
 
 # ---- Which game runs at power-up: games/NAME.py or games/NAME/ (docs/making-games.md) ----
 GAME = "salient"              # "paint" is the small example game; "testpattern" checks every LED and its address;
-                              # "clock" is an analog wall clock
+                              # "clock" is an analog wall clock; "fire" a forest that grows and burns
 FPS = 40                      # frames a second the host aims for
 
 # ---- LEDs ----
