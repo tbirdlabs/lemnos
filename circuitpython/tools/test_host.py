@@ -1,6 +1,6 @@
 # Desktop test of the board's own parts (gamehost/), with no game's rules involved: the LED maps and placement,
 # drivers, effects, the die roller, the board's geometry, controllers coming and going, plug-ins, and the host
-# running the example game (games/paint.py), the test pattern (games/testpattern.py) and the clock (games/clock.py)
+# running the example game (games/paint.py), the test pattern (games/testpattern.py) and the clock (games/clock/)
 # on a fake clock, the time of day (walltime.py, with a fake RTC chip) and console command lines.
 #   py -3 tools/test_host.py          (Island Rush on the board: tools/test_rush.py)
 
@@ -499,10 +499,10 @@ def carried_bars():
 
 
 def forest_fire():
-    """games/fire.py through the host: the forest grows and burns on its own, pick calls down lightning (once a
+    """games/fire/ through the host: the forest grows and burns on its own, pick calls down lightning (once a
     second at most), and every bar shows the forest and the fire."""
     import random
-    import games.fire as F
+    from games.fire import game as F
     random.seed(5)
     h = host.Host(host.load_game("fire"), host.Board(leds.Lights(), Controls(hardware=False)))
     ctl = h.board.controls
@@ -541,12 +541,12 @@ def forest_fire():
 
 
 def fireflies():
-    """games/fireflies.py through the host, on both boards: an evening starts with one firefly, the next answers it
+    """games/fireflies/ through the host, on both boards: an evening starts with one firefly, the next answers it
     from near it just after it glows, more come out until all are, and they fall into step on their own; glows are
     single LEDs (line LEDs too, on the small board), never faster than the flash limit; pick starts the evening
     over."""
     import random
-    import games.fireflies as F
+    from games.fireflies import game as F
     random.seed(3)
     h = host.Host(host.load_game("fireflies"), host.Board(leds.Lights(), Controls(hardware=False)))
     g = h.game
@@ -601,10 +601,10 @@ def fireflies():
 
 
 def aurora():
-    """games/aurora.py through the host, on both boards: a faint quiet sky, a display building to a peak and
+    """games/aurora/ through the host, on both boards: a faint quiet sky, a display building to a peak and
     fading, pick sets off a surge, the bars show the activity, and nothing jumps: every LED changes gradually."""
     import random
-    import games.aurora as A
+    from games.aurora import game as A
     for lines in (False, True):
         sky = A.Sky(lines, random.Random(4))
         name = "aurora (%s)" % ("small" if lines else "large")
@@ -642,10 +642,10 @@ def aurora():
 
 
 def rain():
-    """games/rain.py, on both boards: a ring reaches every LED by distance and fades; a shower goes still, build,
+    """games/rain/, on both boards: a ring reaches every LED by distance and fades; a shower goes still, build,
     pour, ease, still; pick drops a pebble (twice a second at most); the bars show the rain; nothing jumps."""
     import random
-    import games.rain as R
+    from games.rain import game as R
     for lines in (False, True):
         name = "rain (%s)" % ("small" if lines else "large")
         pond = R.Pond(lines, random.Random(2))
@@ -837,9 +837,9 @@ def console():
 
 
 def clock():
-    """games/clock.py: the hands point at the time, the corners stay dark, the ring shows the hours, the minute and
+    """games/clock/: the hands point at the time, the corners stay dark, the ring shows the hours, the minute and
     the second; pick turns the second light off; "time" commands reach it through the host."""
-    import games.clock as C
+    from games.clock import game as C
     config_rtc = getattr(config, "RTC", None)
     config.RTC = None
     ns = [0]
@@ -917,6 +917,27 @@ def clock():
         config.RTC = config_rtc
 
 
+def cards():
+    """Every game's card in the game picker loads and draws something, and a folder game's card (its card.py)
+    doesn't load the game: the picker loads cards while another game is running, so they have to be small."""
+    h = host.Host(host.load_game("paint"), host.Board(leds.Lights(), Controls(hardware=False)), name="paint")
+    lob = h.lobby
+    for name in host.game_names():
+        if name != "paint":
+            host.unload_game(name)
+        fn = lob.card_of(name)
+        check("cards: %s has one" % name, fn is not None)
+        if fn is None:
+            continue
+        if not hasattr(sys.modules["games." + name], "Game"):
+            check("cards: %s's card loads without its game" % name, "games.%s.game" % name not in sys.modules,
+                  [k for k in sys.modules if k.startswith("games." + name)])
+        h.board.lights.raw[:] = bytes(len(h.board.lights.raw))
+        fn(h.board.lights, 0.0)
+        check("cards: %s's card draws" % name, any(h.board.lights.raw))
+        lob.close_games()
+
+
 if __name__ == "__main__":
     lights_map()
     driver()
@@ -938,4 +959,5 @@ if __name__ == "__main__":
     wall_time()
     console()
     clock()
+    cards()
     print("%d failed" % len(FAILS) if FAILS else "all passed")

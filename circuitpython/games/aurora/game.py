@@ -255,14 +255,6 @@ class Sky:
                  bs[k] >> 8 if bs[k] < 65280 else 255) for k in range(n)]
 
 
-def card(lights, now):
-    """The board's game picker shows this (gamehost/lobby.py): one curtain, green below to violet above."""
-    for t in range(G.SPOTS):
-        r = G.ROW[t]
-        c = (EDGE, EDGE, MIDDLE, HIGH, OFF, OFF, OFF)[6 - r] if r >= 2 else OFF
-        lights.spot(t, [(c[0] // 2, c[1] // 2, c[2] // 2)] * 3 if r == 6 else [c] * 3)
-
-
 class Game(BaseGame):
     def __init__(self, board):
         BaseGame.__init__(self, board)

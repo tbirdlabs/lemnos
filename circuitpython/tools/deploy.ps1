@@ -1,12 +1,13 @@
 # Puts the board software on a board's CIRCUITPY drive:
 #   gamehost/ and every game in a folder (games/rush/)      compiled to .mpy (no compiling on the board, which takes
 #                                                          more RAM than running them)
-#   games in one file (games/paint.py, clock, ...)         compiled to .mpy too: the game picker loads a game's card
+#   games in one file (games/paint.py, testpattern.py)     compiled to .mpy too: the game picker loads a game's card
 #                                                          while another game is running, and compiling a big one
-#                                                          there runs out of memory. Their sources go to games/src/
-#                                                          on the drive, which the board doesn't load: to change one
-#                                                          there, edit it and copy it into games/ (a .py is loaded
-#                                                          before a .mpy)
+#                                                          there runs out of memory
+#   every game's source                                    to games/src/ on the drive (games/src/paint.py,
+#                                                          games/src/rush/game.py, ...), which the board doesn't load:
+#                                                          to change one there, edit it and copy it into games/ (a
+#                                                          .py is loaded before a .mpy)
 #   code.py, Lemnos.html                                   copied (the page was Salient.html before the board
 #                                                          was named Lemnos: an old one is removed)
 #   config.py                                              only if the drive has none: it's the board's own wiring
@@ -66,6 +67,7 @@ try {
             & $exe -o $out $rel                      # relative, so tracebacks say gamehost/host.py
             if ($LASTEXITCODE -ne 0) { throw "mpy-cross failed on $rel" }
             $plan[($rel -replace "\.py$", ".mpy")] = $out
+            if ($dir -like "games/*") { $plan["games/src/$($dir.Substring(6))/$($f.Name)"] = $f.FullName }   # (not loaded)
         }
     }
 } finally { Pop-Location }

@@ -34,11 +34,11 @@ They meet in one small interface, the `Game` class in [`gamehost/game.py`](gameh
 | `gamehost/plugins.py` | How `config.py` names your own drivers, inputs, hubs and games (`"module.Name"`). |
 | `games/paint.py` | The example game: paint spots in your color. Also a quick test of every light and controller. |
 | `games/testpattern.py` | Test pattern: red, then green, then blue fill every LED one at a time, left to right; pause and step to print an LED's strip address. |
-| `games/clock.py` | An analog wall clock: the island is the face, the six bars a 60-light minute ring. |
-| `games/fire.py` | Forest fire, an attract screen or wall decoration: the forest grows back and lightning burns it, small fires and now and then a big one; pick calls down lightning. `fire.sim()` runs its rules on a computer to tune them. |
-| `games/fireflies.py` | Fireflies, another attract screen: an evening of fireflies at single LEDs. One alone, then another answers, then more until all are out; they slowly fall into step and glow together, then go out one by one and the next evening starts. Pick starts the evening over. `fireflies.sim()` tunes it. |
-| `games/aurora.py` | Aurora, another attract screen: curtains of northern lights, green at the edge to violet above, building to a display and fading, now and then a surge with a pink fringe. Pick sets off a surge. |
-| `games/rain.py` | Rain, another attract screen: showers on a pond, each drop a ring spreading across every LED, from a few first drops to a downpour and back to still. Pick drops a pebble. |
+| `games/clock/` | An analog wall clock: the island is the face, the six bars a 60-light minute ring. |
+| `games/fire/` | Forest fire, an attract screen or wall decoration: the forest grows back and lightning burns it, small fires and now and then a big one; pick calls down lightning. `sim()` in its `game.py` runs its rules on a computer to tune them. |
+| `games/fireflies/` | Fireflies, another attract screen: an evening of fireflies at single LEDs. One alone, then another answers, then more until all are out; they slowly fall into step and glow together, then go out one by one and the next evening starts. Pick starts the evening over. `sim()` in its `game.py` tunes it. |
+| `games/aurora/` | Aurora, another attract screen: curtains of northern lights, green at the edge to violet above, building to a display and fading, now and then a surge with a pink fringe. Pick sets off a surge. |
+| `games/rain/` | Rain, another attract screen: showers on a pond, each drop a ring spreading across every LED, from a few first drops to a downpour and back to still. Pick drops a pebble. |
 | `games/rush/` | Island Rush, the board's first game (`config.GAME`): `game.py` (setup fields, play UI, the tigers on the lights), `engine.py` (rules), `ai.py` (the computer players), `card.py`. |
 | `tools/` | Desktop only, never copied to the board: tests, the Island Rush simulator (`sim_rush.py`), `deploy.ps1` (puts the software on the board), `settime.ps1` (sets the board's clock from this computer). |
 
@@ -77,9 +77,9 @@ run-node tools/test_page.js     Lemnos.html itself, without a browser, against t
    `LED_DRIVER = "neopixel"`).
 2. With the board plugged in: `powershell -ExecutionPolicy Bypass -File tools\deploy.ps1`. It compiles `gamehost/`
    and every game to `.mpy` with Adafruit's `mpy-cross` for the board's exact CircuitPython version (downloaded the
-   first time), puts the sources of the games in one file (`paint.py`, `clock.py`, ...) in `games/src/` on the drive
-   to read and change (the board doesn't load them; copy a changed one into `games/`, where a `.py` is loaded before
-   the `.mpy`), and copies `code.py` and `Lemnos.html`. It writes only what
+   first time), puts every game's source in `games/src/` on the drive to read and change (the board doesn't load
+   them; copy a changed one into `games/`, where a `.py` is loaded before the `.mpy`), and copies `code.py` and
+   `Lemnos.html`. It writes only what
    changed, removes `.py` copies the new `.mpy` files replace, and never overwrites the drive's `config.py`
    (`-DryRun` says what it would do). Compiling the source on the board itself takes a lot more RAM than running it:
    a big game doesn't fit as `.py`. A small game of your own can just be copied to `games/` as a `.py`. After moving

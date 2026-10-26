@@ -367,7 +367,7 @@ def switching():
           [k for k in sys.modules if k.startswith("games.rush")])
     h.switch("nosuchgame", 0.2)
     check("switch: a failed switch brings the old game back", h.name == "clock" and "games.clock" in sys.modules and
-          type(h.game).__module__ == "games.clock")
+          type(h.game).__module__ == "games.clock.game")
     h.switch("paint", 0.3)
     h.frame(0.35)
     check("switch: and on to another", h.name == "paint" and "games.clock" not in sys.modules)

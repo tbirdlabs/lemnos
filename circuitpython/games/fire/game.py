@@ -15,7 +15,7 @@
 # Controls: pick calls down lightning on a thick part of the forest (once a second at most).
 #
 # The rules are step() below, on its own (no lights, no clock), so they can be run and tuned on a computer:
-#   py -3 -c "from games import fire; fire.sim()"
+#   py -3 -c "from games.fire import game; game.sim()"
 
 import math
 import random
@@ -131,16 +131,6 @@ def colors(forest, t):
         return [c, c, c]
     n = forest.tree[t]
     return [FOREST[n] if LIT[n][i] else OFF for i in range(3)]
-
-
-def card(lights, now):
-    """The board's game picker shows this (gamehost/lobby.py): forest with a fire in it."""
-    for t in range(G.SPOTS):
-        n = 1 + (G.Q[t] * 7 + G.R[t] * 3) % 3
-        lights.spot(t, [FOREST[n] if LIT[n][i] else OFF for i in range(3)])
-    for t in ("C3", "D4", "D3"):
-        lights.spot(t, [FIRE_HOT] * 3)
-    lights.spot("C4", [EMBER] * 3)
 
 
 class Game(BaseGame):

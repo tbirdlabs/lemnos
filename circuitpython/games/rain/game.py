@@ -10,12 +10,12 @@
 # Every bar shows how hard it's raining, in blue. Controls: pick drops a pebble: a bigger splash, somewhere, with a
 # second, fainter ring trailing the first.
 #
-# Fast on purpose (games/aurora.py has the story): whole numbers and tables only. Distances are in 16ths of a hex
-# width; for each hex the LEDs are sorted by distance from it once, at the start, so a ring of radius r only touches
-# the LEDs at that distance (a slice of the list, found by a binary search), never all of them; and each LED's color
-# comes from a table, so working out a frame makes no new colors. Small, too: the board also has the game picker and
-# whatever else loaded, so it keeps only the sorted lists (about 12 KB), not the LEDs' places or anything to speed
-# up the search.
+# Fast on purpose (games/aurora/game.py has the story): whole numbers and tables only. Distances are in 16ths of a
+# hex width; for each hex the LEDs are sorted by distance from it once, at the start, so a ring of radius r only
+# touches the LEDs at that distance (a slice of the list, found by a binary search), never all of them; and each
+# LED's color comes from a table, so working out a frame makes no new colors. Small, too: the board also has the game
+# picker and whatever else loaded, so it keeps only the sorted lists (about 12 KB), not the LEDs' places or anything
+# to speed up the search.
 
 import random
 from gamehost import geometry as G
@@ -184,15 +184,6 @@ class Pond:
     def strength(self):
         """0-1: how hard it's raining."""
         return min(1.0, self.rate / PEAK[1])
-
-
-def card(lights, now):
-    """The board's game picker shows this (gamehost/lobby.py): the pond, with a drop's ring around the middle and a
-    fainter one inside it. (No bright middle: that looks like the picker's own blinking white hex.)"""
-    for t in range(G.SPOTS):
-        ring = max(abs(G.Q[t]), abs(G.R[t]), abs(G.Q[t] + G.R[t]))
-        c = COLORS[(0, LEVELS // 3, LEVELS - 1, 0)[ring]]
-        lights.spot(t, [c] * 3)
 
 
 class Game(BaseGame):

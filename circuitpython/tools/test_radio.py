@@ -199,7 +199,7 @@ def settings():
     check("settings: paint has the radio player", any(c.id == "radio-p1" for c in paint.players))
     uart.feed("SET game clock\n")
     h.frame(0.4)
-    check("settings: switched to the clock", h.name == "clock" and type(h.game).__module__ == "games.clock")
+    check("settings: switched to the clock", h.name == "clock" and type(h.game).__module__ == "games.clock.game")
     h.frame(0.5)
     check("settings: tells the radio", "STATE game clock" in uart.sent())
     uart.feed("SET game paint\n")

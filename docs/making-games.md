@@ -291,7 +291,9 @@ Island Rush (`games/rush/game.py`) is a full example.
 
 **A card for the game picker:** a picture of your game, drawn while people choose. In a one-file game, a
 module-level `card(lights, now)`; in a folder, `card.py` with `draw(lights, now)`, so the picker can show it without
-loading the whole game. Without one, the picker shows a plain card.
+loading the whole game. Without one, the picker shows a plain card. The picker loads cards while another game is
+running, so a one-file game's card costs the whole game's memory: anything much bigger than `paint.py` should be a
+folder with its own `card.py` (the attract screens, `games/aurora/` and the rest, are).
 
 ## Trying a game
 

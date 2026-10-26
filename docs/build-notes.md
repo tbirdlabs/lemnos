@@ -115,6 +115,24 @@ board with about 70 KB free, all for three "answers" per evening. It now works t
 **Lessons:** a fallback that hides errors also hides the cause, so log it; memory on a microcontroller depends on
 what's already loaded, so test with the worst case loaded.
 
+**It came back.** With Aurora or Rain running, every card in the picker fell back to the blinking hex again, the
+clock's too. This time the picker's log said why at once:
+
+```
+game picker: rain's card didn't load (MemoryError('memory allocation failed, allocating 418 bytes',))
+game picker: clock's card didn't load (MemoryError('memory allocation failed, allocating 256 bytes',))
+game picker: aurora's card didn't load (MemoryError('memory allocation failed, allocating 1024 bytes',))
+```
+
+The worst case hadn't been the worst case: the fix above was checked with Island Rush running, not with the two
+hungriest attract screens (25 KB free with Aurora running). Measuring on the board what loading each game keeps
+showed the real problem. A one-file game has no card of its own, so the picker loads the whole game to draw its
+picture: 5.6 KB for Fire, 8 KB for Rain, 11 KB for Aurora, 13 KB for the clock, plus more while it loads. Island
+Rush's card, in its own `card.py`, costs 1 KB.
+
+**Fix.** The attract screens are folders now, like Island Rush: `games/aurora/game.py` and a small `card.py` that
+draws the picture without loading the game. Their sources still go to `games/src/` on the drive.
+
 ---
 
 ## 3. The controller that did nothing
