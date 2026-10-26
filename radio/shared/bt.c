@@ -375,7 +375,7 @@ static void on_oob_event(uni_platform_oob_event_t event, void* data) {
 
 struct uni_platform* bt_platform(void) {
     static struct uni_platform plat = {
-        .name = "salient",
+        .name = "lemnos",
         .init = on_init,
         .on_init_complete = on_init_complete,
         .on_device_discovered = on_device_discovered,

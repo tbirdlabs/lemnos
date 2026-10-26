@@ -70,7 +70,7 @@ class Game:
         """A controller went away (an I2C gamepad disconnected). It sends nothing until controller_added again.
         A game might let the computer take over that player, or pause."""
 
-    # ---- Optional: a setup, on the board (the lobby) and on the USB page (Salient.html) ----
+    # ---- Optional: a setup, on the board (the lobby) and on the USB page (Lemnos.html) ----
     # The lobby walks people through options() on the board; the page shows it as a form with a Start button. Both
     # call setup() with what was chosen. Until then the game is idle (the lobby draws, with preview()); once
     # finished() says it's over, the lobby has the controllers again: pick plays again (setup() with the same

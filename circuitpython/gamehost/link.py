@@ -1,5 +1,5 @@
 # The text protocol the radio co-processor (radio.py, over a UART) and the USB page (usbpage.py, over the serial
-# console) both speak to the board: one line per message, words separated by spaces (NOTES.md, "Radio protocol").
+# console) both speak to the board: one line per message, words separated by spaces (docs/protocol.md).
 # A Link is a controller hub whose player slots p1..p6 are controllers; a subclass says how lines go out (send) and
 # how to answer a HELLO.
 #

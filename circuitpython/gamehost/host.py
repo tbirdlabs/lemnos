@@ -97,7 +97,7 @@ def game_names():
 
 
 def _game_name(cls):
-    """"paint" for games.paint.Game, "salient" for games.salient.game.Game ("" where classes have no __module__)."""
+    """"paint" for games.paint.Game, "rush" for games.rush.game.Game ("" where classes have no __module__)."""
     parts = getattr(cls, "__module__", "").split(".")
     return parts[-2] if parts[-1] == "game" and len(parts) > 1 else parts[-1]
 
@@ -118,7 +118,7 @@ class Host:
     def switch(self, name, now):
         """Run another game from now on (the game setting). The controllers connected are handed to it. True if
         that game is running now; False if there's no such game, or it fails to start (the old one carries on).
-        Memory gets broken up as games come and go, so a big game (Salient) may not fit again in what's left: then the
+        Memory gets broken up as games come and go, so a big game may not fit again in what's left: then the
         board's program starts afresh with it (restart(), a few seconds), as at power-up. The saved game setting
         (saved.py) says which game that is, so apply() saves it before switching. The radio and the USB page hand the
         controllers and settings back when they hear the board again."""

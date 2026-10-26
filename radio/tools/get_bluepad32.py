@@ -5,7 +5,7 @@
 #
 #   py -3 tools/get_bluepad32.py            (run again after changing the version below)
 #
-# Puts them outside the source tree, in ~/.salient-radio/bluepad32-<version>/ (or $SALIENT_RADIO_DEPS): the clone,
+# Puts them outside the source tree, in ~/.lemnos-radio/bluepad32-<version>/ (or $LEMNOS_RADIO_DEPS): the clone,
 # and components/{bluepad32,btstack,cmd_nvs,cmd_system}, which CMakeLists.txt adds to the build. Outside, because the
 # source may live on a network share (git won't check out submodules there, and ESP-IDF builds crawl over SMB).
 
@@ -17,7 +17,7 @@ import sys
 BLUEPAD32_URL = "https://github.com/ricardoquesada/bluepad32.git"
 BLUEPAD32_TAG = "4.2.0"            # BTstack comes with it (its submodule), at the commit this tag pins
 
-DEPS = os.path.join(os.environ.get("SALIENT_RADIO_DEPS") or os.path.join(os.path.expanduser("~"), ".salient-radio"),
+DEPS = os.path.join(os.environ.get("LEMNOS_RADIO_DEPS") or os.path.join(os.path.expanduser("~"), ".lemnos-radio"),
                     "bluepad32-" + BLUEPAD32_TAG)
 CLONE = os.path.join(DEPS, "src")
 COMPONENTS = os.path.join(DEPS, "components")

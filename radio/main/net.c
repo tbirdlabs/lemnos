@@ -19,7 +19,7 @@
 #define AP_CLOSE_AFTER_MS 60000        // on the home network: close the setup network after this
 #define RETRY_MS 5000
 #define RETRY_SETUP_MS 30000           // while the setup network is open, try less often (each try disturbs it)
-#define HOSTNAME "salient"
+#define HOSTNAME "lemnos"
 
 static const char* TAG = "net";
 
@@ -135,8 +135,8 @@ static void start_mdns(void) {
     if (mdns_init() != ESP_OK)
         return;
     mdns_hostname_set(HOSTNAME);
-    mdns_instance_name_set("Salient board");
-    mdns_service_add("Salient", "_http", "_tcp", 80, NULL, 0);
+    mdns_instance_name_set("Lemnos board");
+    mdns_service_add("Lemnos", "_http", "_tcp", 80, NULL, 0);
     mdns_up = true;
 }
 
@@ -177,7 +177,7 @@ void net_start(void) {
 
     uint8_t mac[6];
     esp_read_mac(mac, ESP_MAC_WIFI_SOFTAP);
-    snprintf(ap_ssid, sizeof(ap_ssid), "Salient-%02X%02X", mac[4], mac[5]);
+    snprintf(ap_ssid, sizeof(ap_ssid), "Lemnos-%02X%02X", mac[4], mac[5]);
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));

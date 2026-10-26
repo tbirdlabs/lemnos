@@ -1,11 +1,11 @@
-// The UART protocol between the radio and the SCORPIO: 115200 8N1, newline-delimited text lines (NOTES.md, "Radio
-// protocol"). This file only builds and parses lines; the platform layer moves the bytes.
+// The UART protocol between the radio and the SCORPIO: 115200 8N1, newline-delimited text lines
+// (docs/protocol.md). This file only builds and parses lines; the platform layer moves the bytes.
 //
 //   Radio -> SCORPIO                         SCORPIO -> Radio
 //   HELLO <fw version>                       HELLO <fw version>
-//   IN p1 up|down|left|right|pick|back|menu  STATE game salient
+//   IN p1 up|down|left|right|pick|back|menu  STATE game rush
 //   CTL p1 connected wiimote|xbox|xac|phone|gamepad   ACK <setting>
-//   CTL p1 disconnected                      GAMES clock paint salient testpattern
+//   CTL p1 disconnected                      GAMES clock paint rush testpattern
 //   TIME 2026-10-20T14:05:00                 PAIR  (or PAIR off)
 //   SET brightness 6  /  SET game clock
 //

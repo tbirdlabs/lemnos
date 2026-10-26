@@ -1,6 +1,6 @@
-# The board's software (CircuitPython, Feather RP2040 SCORPIO)
+# Lemnos board software (CircuitPython, Feather RP2040 SCORPIO)
 
-The board is a game platform: a hex island of lights, six seats with a bar each, and any mix of controllers. It's
+Lemnos is a game platform: a hex island of lights, six seats with a bar each, and any mix of controllers. It's
 split in two so anyone can write a game for it, or build one with different parts:
 
 - **`gamehost/`** knows the hardware (LEDs, controllers, wiring) and nothing about any game.
@@ -11,7 +11,7 @@ They meet in one small interface, the `Game` class in [`gamehost/game.py`](gameh
 
 | Where | What it is |
 | --- | --- |
-| `Salient.html` | **The USB page.** Open it from the CIRCUITPY drive in Edge, Chrome or Firefox: the board's lights on screen, the game, brightness, the clock, the players, an on-screen controller and the console. Nothing to install. |
+| `Lemnos.html` | **The USB page.** Open it from the CIRCUITPY drive in Edge, Chrome or Firefox: the board's lights on screen, the game, brightness, the clock, the players, an on-screen controller and the console. Nothing to install. |
 | `config.py` | **Edit this one.** Which game runs, which board (large or small), the LED driver and where the LEDs are, the controllers. |
 | `code.py` | Starts the host at power-up. |
 | `gamehost/game.py` | The `Game` base class: the whole interface between the board and a game. |
@@ -39,53 +39,36 @@ They meet in one small interface, the `Game` class in [`gamehost/game.py`](gameh
 | `games/fireflies.py` | Fireflies, another attract screen: an evening of fireflies at single LEDs. One alone, then another answers, then more until all are out; they slowly fall into step and glow together, then go out one by one and the next evening starts. Pick starts the evening over. `fireflies.sim()` tunes it. |
 | `games/aurora.py` | Aurora, another attract screen: curtains of northern lights, green at the edge to violet above, building to a display and fading, now and then a surge with a pink fringe. Pick sets off a surge. |
 | `games/rain.py` | Rain, another attract screen: showers on a pond, each drop a ring spreading across every LED, from a few first drops to a downpour and back to still. Pick drops a pebble. |
-| `games/salient/` | Salient: `game.py` (the board's side: setup fields, play UI, the computer's turns), `card.py` (its picture in the game picker), `engine.py` (rules), `ai.py`, `difficulty.py`, `rules.py` (generated; don't edit), `bench.py` (bring-up). |
-| `games/rush/` | Island Rush: `game.py` (setup fields, play UI, the tigers on the lights), `engine.py` (rules), `ai.py` (the computer players), `card.py`. |
-| `tools/` | Desktop only, never copied to the board: tests, the JS / Python replay comparison, the profiler, `gen_rules.js`, `deploy.ps1` (puts the software on the board), `settime.ps1` (sets the board's clock from this computer). |
+| `games/rush/` | Island Rush, the board's first game (`config.GAME`): `game.py` (setup fields, play UI, the tigers on the lights), `engine.py` (rules), `ai.py` (the computer players), `card.py`. |
+| `tools/` | Desktop only, never copied to the board: tests, the Island Rush simulator (`sim_rush.py`), `deploy.ps1` (puts the software on the board), `settime.ps1` (sets the board's clock from this computer). |
 
 ## Tests (desktop, from this folder)
 
 ```
 py -3 tools/test_host.py        the board's parts: LED maps, drivers, effects, dice, geometry, controllers, host, paint, test pattern, clock
-py -3 tools/test_salient.py     Salient played through the board UI by simulated controllers, checked against the engine
-py -3 tools/test_radio.py       the radio hub over a fake UART, and a two-player Salient game played through it
+py -3 tools/test_rush.py        Island Rush: its rules, and whole games through the board UI by simulated controllers
+py -3 tools/test_radio.py       the radio hub over a fake UART, and a two-player Island Rush played through it
 py -3 tools/test_usbpage.py     the USB page's side: its lines, players, settings saved and restored, the lights sent
-run-node tools/test_page.js     Salient.html itself, without a browser, against the board software on this computer
+run-node tools/test_page.js     Lemnos.html itself, without a browser, against the board software on this computer
                                 (tools/page_bridge.py); no Node: set ELECTRON_RUN_AS_NODE=1 and run it with VS Code's Code.exe
 ```
 
-## Salient on the board
+## Playing on the board
 
-- **Setup** (the board's lobby, the same for every game: `gamehost/lobby.py`): press pick to join, move picks a
-  side, pick takes it (Red invades, Blue defends). The island is laid out around Red's controller's seat (or
-  opposite Blue's; seat 1 if it has none). A second player can join and take the other side; otherwise the computer
-  plays it, and the first player sets the difficulty (1–10 lights on their bar, 7 = fair). Then their bar breathes
-  green: pick starts. After a game, pick plays again; back returns to the setup (everyone still in it), and back
-  with nobody joined opens the game picker (each game's card on the island).
+- **Setup** (the board's lobby, the same for every game: `gamehost/lobby.py`, with each game's own fields): press
+  pick to join, move steps through a field's choices, pick takes one. In Island Rush that's a corner (your seat),
+  then a color; the first to join then sets how many play, and the computer plays every seat no one takes. Then
+  their bar breathes green: pick starts. A controller without back gets a way-back stop in each field. After a game,
+  pick plays again; back returns to the setup (everyone still in it), and back with nobody joined opens the game
+  picker (each game's card on the island).
 - **Menu, from any game:** hold a wired button 3 s (`MENU_HOLD_S`), or `q` on the console, or Menu (Home) on the USB
   page. The game pauses and your bar goes green with one red light: move to the red light and pick for the game
   picker; pick green, back, or wait 30 s to carry on.
-- **Each player sees the island from their own side:** rows run across their side, far to near, and their bar is
-  past their nearest row. Move steps through the rows with something to pick, then the bar; pick opens a row; move
-  steps through its spots; pick picks; back returns to the rows. Arrows move the cursor directly. A controller
-  without back gets a way-out stop at the end of each row (the whole row lights) and, while keeping going, a stop
-  on its bar.
+- **Island Rush: each player sees the island from their own side**, their bar past their nearest row. Move steps
+  through every spot they can pick, then the bar; pick picks. Arrows move the cursor directly.
 - **Lights on a spot:** 1 light = the middle LED, 2 = the outer two, 3 = all, so it reads the same from every side.
-  The cursor lights a spot's empty LEDs dim white and flashes its lit ones; cut-off spots blink; the winner pulses.
+  The cursor lights a spot's empty LEDs dim white and flashes its lit ones.
 - **The computer** plays at watch speed: its cursor walks to the spot, the chance shows on its bar, the roll runs.
-
-## Keeping Salient's ports in step
-
-`engine.py`, `ai.py`, `difficulty.py` and `rules.py` are line-for-line ports of the browser prototype's JS, so the
-same seed plays the same game on both. They import nothing from `gamehost/`.
-
-- After changing `settings.js`: `run-node circuitpython/tools/gen_rules.js` (or VS Code's runtime) rewrites
-  `games/salient/rules.py`.
-- After changing `engine.js` or `ai.js`: make the same change in the `.py` file, then compare:
-  `run-node circuitpython/tools/replay_js.js 500 > js500.txt`, `py -3 tools/replay_py.py 500 > py500.txt`,
-  `diff --strip-trailing-cr js500.txt py500.txt` (empty = identical). `--log SEED` prints one game's moves;
-  `SALIENT_FACE=0` in the environment puts the attacker on the top side.
-- After changing `games/salient/game.py`: `py -3 tools/test_salient.py`.
 
 ## On the board
 
@@ -96,17 +79,15 @@ same seed plays the same game on both. They import nothing from `gamehost/`.
    and every game to `.mpy` with Adafruit's `mpy-cross` for the board's exact CircuitPython version (downloaded the
    first time), puts the sources of the games in one file (`paint.py`, `clock.py`, ...) in `games/src/` on the drive
    to read and change (the board doesn't load them; copy a changed one into `games/`, where a `.py` is loaded before
-   the `.mpy`), and copies `code.py` and `Salient.html`. It writes only what
+   the `.mpy`), and copies `code.py` and `Lemnos.html`. It writes only what
    changed, removes `.py` copies the new `.mpy` files replace, and never overwrites the drive's `config.py`
    (`-DryRun` says what it would do). Compiling the source on the board itself takes a lot more RAM than running it:
-   Salient doesn't fit as `.py`. A small game of your own can just be copied to `games/` as a `.py`. After moving
+   a big game doesn't fit as `.py`. A small game of your own can just be copied to `games/` as a `.py`. After moving
    to a new CircuitPython version, run it again (`.mpy` files only load on the version they were made for).
 3. Wire to `docs/wiring.md`, or change `config.py` to match your wiring.
-4. Bring-up: run Salient's bench first (from the REPL: `from games.salient import bench; bench.main()`). It prints
-   the worst AI move time and the lowest free RAM, and draws each position, which checks the LED map. To check
-   every LED, color and address, set `GAME = "testpattern"`: red, green and blue each fill the board one LED at
-   a time, rows A to G left to right as seen from seat 1, then the bars seat 1 to 6, so an LED out of turn is mapped
-   wrong. Pick pauses; move steps and prints the LED's channel and address. To check every controller by hand, set
+4. Bring-up: to check every LED, color and address, set `GAME = "testpattern"`: red, green and blue each fill the
+   board one LED at a time, rows A to G left to right as seen from seat 1, then the bars seat 1 to 6, so an LED out of
+   turn is mapped wrong. Pick pauses; move steps and prints the LED's channel and address. To check every controller by hand, set
    `GAME = "paint"`.
 5. Then `code.py` runs the game. The serial console works as up to 6 controllers for testing (m, n, p, b, w/a/s/d,
    q for the game picker; a digit switches controller). A line starting with any other letter is a command for the game, such as
@@ -117,7 +98,7 @@ same seed plays the same game on both. They import nothing from `gamehost/`.
 
 ## The USB page
 
-Plug the board into a computer and open `Salient.html` on the CIRCUITPY drive in **Edge, Chrome or Firefox** (Edge is
+Plug the board into a computer and open `Lemnos.html` on the CIRCUITPY drive in **Edge, Chrome or Firefox** (Edge is
 already on every Windows PC; Safari doesn't have Web Serial). Press **Connect** and pick the board's port; after
 that it connects by itself whenever the page is open and the board is plugged in. Only one program can have the port
 open, so close Mu, Thonny or a serial monitor first.
@@ -126,8 +107,8 @@ open, so close Mu, Thonny or a serial monitor first.
 - **Game and brightness:** take effect at once and are remembered through power-off (`gamehost/saved.py`, in the
   RP2040's own non-volatile memory, so the drive stays untouched). **Back to config.py's** forgets them. The radio's
   web page sets the same two settings; the last one set wins.
-- **New game:** the running game's setup as a form (Salient: each controller's side, where Red lands, the
-  difficulty; Island Rush: how many play, each controller's seat and color) and **Start**; or **New game at the
+- **New game:** the running game's setup as a form (Island Rush: how many play, each controller's seat and
+  color) and **Start**; or **New game at the
   board**, back to the game's setup on the board. A game offers the form with `options()` and `setup()`, the same
   fields the board's lobby uses (`docs/making-games.md`).
 - **The clock** is set from the computer's when the page connects.

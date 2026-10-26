@@ -14,9 +14,9 @@
 #   ctltest.py    wired controller test, run on its own from the REPL (no host): pins straight to the bars
 #   hubs.py       I2C controller boards, the serial console
 #   radio.py      the radio co-processor: Bluetooth and phone controllers, web settings, the time (radio/)
-#   usbpage.py    the USB page (Salient.html): settings, players, the lights on screen, over the serial console
+#   usbpage.py    the USB page (Lemnos.html): settings, players, the lights on screen, over the serial console
 #   link.py       the text lines the radio and the USB page share
 #   saved.py      settings remembered through power-off (the game, brightness)
 #   plugins.py    how config.py names your own drivers, inputs, hubs and games
 
-VERSION = "2026.10.24"          # the board software; sent to the radio in HELLO
+VERSION = "2026.10.25"          # the board software; sent to the radio in HELLO

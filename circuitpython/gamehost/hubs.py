@@ -8,7 +8,7 @@
 #               controller the keys belong to.
 #               It also takes typed commands for the game (Game.command): a line that starts with any other letter
 #               (or with "/") up to Enter, such as "time 14:32" for the clock. A line starting with "!" is from the
-#               USB page (Salient.html; usbpage.py), which works through this hub.
+#               USB page (Lemnos.html; usbpage.py), which works through this hub.
 #   "radio"     the radio co-processor on the TX/RX pins (radio.py): its player slots p1..p6 are controllers
 #
 # A hub is a class made with the Controls it feeds, with:

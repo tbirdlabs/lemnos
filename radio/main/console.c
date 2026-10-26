@@ -32,7 +32,7 @@ static int cmd_status(int argc, char** argv) {
     net_status(&ns);
     int64_t local;
     bool dst;
-    printf("Salient radio %s on %s, up %lu s\n", RADIO_FW_VERSION, BOARD_NAME, (unsigned long)(hub_ms() / 1000));
+    printf("Lemnos radio %s on %s, up %lu s\n", RADIO_FW_VERSION, BOARD_NAME, (unsigned long)(hub_ms() / 1000));
     printf("WiFi: %s%s%s%s\n", ns.connected ? "on " : ns.ssid[0] ? "trying " : "no network saved",
            ns.ssid, ns.connected ? ", " : "", ns.ip);
     if (ns.ap_on)
@@ -175,17 +175,17 @@ static int cmd_wifi_forget(int argc, char** argv) {
 
 void console_start(void) {
     const esp_console_cmd_t cmds[] = {
-        {.command = "status", .help = "Salient: settings, network, time, controllers, link", .func = cmd_status},
-        {.command = "link", .help = "Salient: link on|off prints the lines to and from the SCORPIO", .func = cmd_link},
-        {.command = "pair", .help = "Salient: pair [on|off]", .func = cmd_pair},
-        {.command = "faketime", .help = "Salient: faketime 2026-11-01T06:59:30Z (UTC; stops NTP)", .func = cmd_faketime},
-        {.command = "ntp", .help = "Salient: back to NTP time", .func = cmd_ntp},
-        {.command = "fakepad", .help = "Salient: fakepad <slot> connect <kind>|disconnect|up|...|pick|back",
+        {.command = "status", .help = "Lemnos: settings, network, time, controllers, link", .func = cmd_status},
+        {.command = "link", .help = "Lemnos: link on|off prints the lines to and from the SCORPIO", .func = cmd_link},
+        {.command = "pair", .help = "Lemnos: pair [on|off]", .func = cmd_pair},
+        {.command = "faketime", .help = "Lemnos: faketime 2026-11-01T06:59:30Z (UTC; stops NTP)", .func = cmd_faketime},
+        {.command = "ntp", .help = "Lemnos: back to NTP time", .func = cmd_ntp},
+        {.command = "fakepad", .help = "Lemnos: fakepad <slot> connect <kind>|disconnect|up|...|pick|back",
          .func = cmd_fakepad},
-        {.command = "forget", .help = "Salient: forget <id> | all (controllers; Bluetooth pairings dropped)",
+        {.command = "forget", .help = "Lemnos: forget <id> | all (controllers; Bluetooth pairings dropped)",
          .func = cmd_forget},
-        {.command = "wifi", .help = "Salient: wifi <ssid> [password] (restarts)", .func = cmd_wifi},
-        {.command = "wifi_forget", .help = "Salient: forget the network (restarts into setup)", .func = cmd_wifi_forget},
+        {.command = "wifi", .help = "Lemnos: wifi <ssid> [password] (restarts)", .func = cmd_wifi},
+        {.command = "wifi_forget", .help = "Lemnos: forget the network (restarts into setup)", .func = cmd_wifi_forget},
     };
     for (size_t i = 0; i < sizeof(cmds) / sizeof(cmds[0]); i++)
         esp_console_cmd_register(&cmds[i]);

@@ -1,14 +1,14 @@
-# The Salient radio co-processor (ESP-IDF project; PlatformIO builds it through platformio.ini).
+# The Lemnos radio co-processor (ESP-IDF project; PlatformIO builds it through platformio.ini).
 cmake_minimum_required(VERSION 3.16)
 
 # Bluepad32 and BTstack, set up by tools/get_bluepad32.py outside the source tree
 set(BLUEPAD32_VERSION 4.2.0)
-if(DEFINED ENV{SALIENT_RADIO_DEPS})
-    set(RADIO_DEPS $ENV{SALIENT_RADIO_DEPS})
+if(DEFINED ENV{LEMNOS_RADIO_DEPS})
+    set(RADIO_DEPS $ENV{LEMNOS_RADIO_DEPS})
 elseif(CMAKE_HOST_WIN32)
-    file(TO_CMAKE_PATH "$ENV{USERPROFILE}/.salient-radio" RADIO_DEPS)
+    file(TO_CMAKE_PATH "$ENV{USERPROFILE}/.lemnos-radio" RADIO_DEPS)
 else()
-    set(RADIO_DEPS $ENV{HOME}/.salient-radio)
+    set(RADIO_DEPS $ENV{HOME}/.lemnos-radio)
 endif()
 set(BP32_COMPONENTS ${RADIO_DEPS}/bluepad32-${BLUEPAD32_VERSION}/components)
 if(NOT EXISTS ${BP32_COMPONENTS}/bluepad32)
@@ -17,4 +17,4 @@ endif()
 set(EXTRA_COMPONENT_DIRS ${BP32_COMPONENTS} ${CMAKE_CURRENT_LIST_DIR}/core)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(salient_radio)
+project(lemnos_radio)

@@ -10,7 +10,7 @@
 #include "link.h"
 #include "pads.h"
 
-#define RADIO_FW_VERSION "1.1.0"
+#define RADIO_FW_VERSION "1.2.0"
 
 typedef struct {
     char tz[48];                       // IANA time zone id (core/tz.h); "" = the default

@@ -1,6 +1,6 @@
 // WiFi. With no network saved (or the saved one not found within 20 s) the radio opens its own setup network,
-// "Salient-XXXX", whose captive portal shows the settings page; once on the home network it's reachable as
-// http://salient.local (mDNS) and the setup network closes a minute later.
+// "Lemnos-XXXX", whose captive portal shows the settings page; once on the home network it's reachable as
+// http://lemnos.local (mDNS) and the setup network closes a minute later.
 #pragma once
 
 #include <stdbool.h>
@@ -12,7 +12,7 @@ typedef struct {
     char ip[16];                       // the home network address, "" if not connected
     int rssi;
     bool ap_on;                        // the setup network is open
-    char ap_ssid[20];                  // "Salient-XXXX"
+    char ap_ssid[20];                  // "Lemnos-XXXX"
 } net_status_t;
 
 typedef struct {

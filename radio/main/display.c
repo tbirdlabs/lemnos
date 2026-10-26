@@ -115,17 +115,17 @@ static void refresh(bool blink) {
     } else if (clock_local(&local, &dst)) {
         int y, mo, d, h, mi, s;
         tz_civil(local, &y, &mo, &d, &h, &mi, &s);
-        snprintf(l, sizeof(l), "Salient   %02d:%02d", h, mi);
+        snprintf(l, sizeof(l), "Lemnos    %02d:%02d", h, mi);
         draw_row(0, l, AMBER);
     } else {
-        draw_row(0, "Salient radio", AMBER);
+        draw_row(0, "Lemnos radio", AMBER);
     }
 
     if (ns.connected) {
-        draw_row(1, "salient.local", WHITE);
+        draw_row(1, "lemnos.local", WHITE);
         draw_row(2, ns.ip, GREY);
     } else if (ns.ap_on) {
-        draw_row(1, ns.ap_ssid, CYAN);                  // "Salient-D531": the setup network, on a row of its own
+        draw_row(1, ns.ap_ssid, CYAN);                  // "Lemnos-D531": the setup network, on a row of its own
         draw_row(2, "192.168.4.1", GREY);
     } else {
         draw_row(1, "Joining WiFi", GREY);

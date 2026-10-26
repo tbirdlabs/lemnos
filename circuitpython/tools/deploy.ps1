@@ -1,5 +1,5 @@
 # Puts the board software on a board's CIRCUITPY drive:
-#   gamehost/ and every game in a folder (games/salient/)   compiled to .mpy (no compiling on the board, which takes
+#   gamehost/ and every game in a folder (games/rush/)      compiled to .mpy (no compiling on the board, which takes
 #                                                          more RAM than running them)
 #   games in one file (games/paint.py, clock, ...)         compiled to .mpy too: the game picker loads a game's card
 #                                                          while another game is running, and compiling a big one
@@ -7,13 +7,14 @@
 #                                                          on the drive, which the board doesn't load: to change one
 #                                                          there, edit it and copy it into games/ (a .py is loaded
 #                                                          before a .mpy)
-#   code.py, Salient.html                                  copied
+#   code.py, Lemnos.html                                   copied (the page was Salient.html before the board
+#                                                          was named Lemnos: an old one is removed)
 #   config.py                                              only if the drive has none: it's the board's own wiring
 # settings.toml, lib/ and anything else on the drive are left alone. Only files that changed are written. A .py on
 # the drive that a new .mpy replaces is removed (CircuitPython would load the .py first), and so is a .mpy whose
 # game is now a .py, and old modules no longer in the source.
 # The compiler is Adafruit's mpy-cross for the board's exact CircuitPython version (read from boot_out.txt),
-# downloaded the first time into %LOCALAPPDATA%\Salient\.
+# downloaded the first time into %LOCALAPPDATA%\Lemnos\.
 #
 #   powershell -ExecutionPolicy Bypass -File tools\deploy.ps1                finds the CIRCUITPY drive
 #   powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Drive E: -DryRun   says what it would do
@@ -35,7 +36,7 @@ if (-not $m.Success) { throw "Can't read the CircuitPython version from $bootOut
 $version = $m.Groups[1].Value
 
 # ---- the compiler
-$cache = Join-Path $env:LOCALAPPDATA "Salient"
+$cache = Join-Path $env:LOCALAPPDATA "Lemnos"
 $exe = Join-Path $cache "mpy-cross-windows-$version.static.exe"
 if (-not (Test-Path $exe)) {
     New-Item -ItemType Directory -Force $cache | Out-Null
@@ -48,7 +49,7 @@ if (-not (Test-Path $exe)) {
 }
 
 # ---- what goes where: drive path -> file to copy (compiled ones built first)
-$build = Join-Path ([System.IO.Path]::GetTempPath()) "salient-build"
+$build = Join-Path ([System.IO.Path]::GetTempPath()) "lemnos-build"
 if (Test-Path $build) { Remove-Item -Recurse -Force $build }
 $plan = [ordered]@{}
 $compiledDirs = @("gamehost") + @(Get-ChildItem (Join-Path $src "games") -Directory |
@@ -82,7 +83,7 @@ try {
     }
 } finally { Pop-Location }
 $plan["code.py"] = Join-Path $src "code.py"
-$plan["Salient.html"] = Join-Path $src "Salient.html"
+$plan["Lemnos.html"] = Join-Path $src "Lemnos.html"
 if (-not (Test-Path (Join-Path $root "config.py"))) { $plan["config.py"] = Join-Path $src "config.py" }
 
 # ---- remove what would shadow or outlive the new files
@@ -93,6 +94,7 @@ foreach ($rel in $plan.Keys) {
     else { continue }
     if (Test-Path (Join-Path $root $other)) { $remove += $other }
 }
+if (Test-Path (Join-Path $root "Salient.html")) { $remove += "Salient.html" }
 foreach ($dir in $compiledDirs + @("games", "games/src")) {
     $d = Join-Path $root $dir
     if (-not (Test-Path $d)) { continue }

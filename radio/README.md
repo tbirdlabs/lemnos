@@ -1,4 +1,4 @@
-# Salient radio co-processor
+# Lemnos radio co-processor
 
 The SCORPIO (Feather RP2040) has no radio, so a separate ESP32 board handles everything wireless and talks to it over
 three wires:
@@ -12,15 +12,15 @@ three wires:
 Up to six players (p1 to p6; up to four of them Bluetooth). Every controller becomes the same three things, move
 (up/down/left/right), pick, back and menu (the board's game picker), so games never know what anyone is holding. The board runs as before with no
 radio attached. Wiring is in [docs/wiring.md](../docs/wiring.md#the-radio); the protocol on the wire is in
-[NOTES.md](../NOTES.md#radio-protocol).
+[docs/protocol.md](../docs/protocol.md#radio-protocol).
 
 ## Boards
 
 | Board | Firmware file | UART to the SCORPIO | Notes |
 | --- | --- | --- | --- |
-| ESP32 DevKit (any ESP32-WROOM-32 dev board) | `salient-radio-esp32dev-…` | GPIO17 TX, GPIO16 RX | The reference board |
-| NodeMCU-32S (Ai-Thinker ESP-32S) | `salient-radio-nodemcu-32s-…` | GPIO17 TX, GPIO16 RX | Same pins as the DevKit, in a different order on the header: go by the silkscreen labels |
-| LilyGO TTGO T-Display | `salient-radio-ttgo-t-display-…` | G25 TX, G26 RX | GPIO16 drives its screen, so the UART moves. The screen shows the setup network or salient.local and the address, the time, pairing, and who's playing |
+| ESP32 DevKit (any ESP32-WROOM-32 dev board) | `lemnos-radio-esp32dev-…` | GPIO17 TX, GPIO16 RX | The reference board |
+| NodeMCU-32S (Ai-Thinker ESP-32S) | `lemnos-radio-nodemcu-32s-…` | GPIO17 TX, GPIO16 RX | Same pins as the DevKit, in a different order on the header: go by the silkscreen labels |
+| LilyGO TTGO T-Display | `lemnos-radio-ttgo-t-display-…` | G25 TX, G26 RX | GPIO16 drives its screen, so the UART moves. The screen shows the setup network or lemnos.local and the address, the time, pairing, and who's playing |
 | Pico W / Pico 2 W | (build it: `pico/`) | GP4 TX, GP5 RX | Experimental: Bluetooth controllers only for now, no WiFi (see [Pico W](#pico-w-experimental)) |
 
 **Only the original ESP32 works.** The ESP32-S2, S3, C3 and C6 have no Bluetooth Classic, which the Wiimote needs
@@ -35,12 +35,17 @@ you're not sure, take the 5 V wire off while the radio is plugged into a compute
 
 Each release has two files per board:
 
-- `salient-radio-<board>-<version>.bin`: **first install**. Bootloader, partition table and firmware in one file,
+- `lemnos-radio-<board>-<version>.bin`: **first install**. Bootloader, partition table and firmware in one file,
   written at address **0x0**. It erases the settings, WiFi network and paired controllers.
-- `salient-radio-<board>-<version>-update.bin`: **updates**. The firmware alone, written at **0x10000**. Keeps the
+- `lemnos-radio-<board>-<version>-update.bin`: **updates**. The firmware alone, written at **0x10000**. Keeps the
   settings, WiFi network and paired controllers.
 
 `SHA256SUMS.txt` lists their checksums.
+
+**From radio 1.1.0 or older** (when the board was called Salient, and so were the files): the 1.2.0 update file
+keeps everything. On its first start it moves the settings, WiFi network and controllers to their new place, and
+from then on the radio is **http://lemnos.local/** and its setup network **Lemnos-XXXX**. Bluetooth pairings stay
+as they were.
 
 **In a browser** (Chrome or Edge on a computer): open [Espressif's web flasher](https://espressif.github.io/esptool-js/),
 plug in the radio, press **Connect** and pick its port. Under Flash Address enter `0x0` (or `0x10000` for an update
@@ -50,8 +55,8 @@ plug it back in).
 **With esptool** (`pip install esptool`):
 
 ```
-esptool --chip esp32 --port COM17 write-flash 0x0 salient-radio-ttgo-t-display-1.0.0.bin
-esptool --chip esp32 --port COM17 write-flash 0x10000 salient-radio-ttgo-t-display-1.0.0-update.bin
+esptool --chip esp32 --port COM17 write-flash 0x0 lemnos-radio-ttgo-t-display-1.0.0.bin
+esptool --chip esp32 --port COM17 write-flash 0x10000 lemnos-radio-ttgo-t-display-1.0.0-update.bin
 ```
 
 Use your port (`/dev/ttyUSB0` on Linux, `/dev/cu.usbserial-…` on a Mac). Older esptool (v4) spells it
@@ -59,10 +64,10 @@ Use your port (`/dev/ttyUSB0` on Linux, `/dev/cu.usbserial-…` on a Mac). Older
 
 ## First setup
 
-1. Power it up. With no WiFi network saved it opens its own: **Salient-XXXX** (the T-Display shows the name).
+1. Power it up. With no WiFi network saved it opens its own: **Lemnos-XXXX** (the T-Display shows the name).
 2. Join that network on your phone. The settings page opens by itself; if it doesn't, go to `http://192.168.4.1/`.
 3. Under **WiFi**, press **Scan**, pick your network, type the password, and press **Join and restart**.
-4. On your home network it's at **http://salient.local/** (or the address on the T-Display's screen, or in your
+4. On your home network it's at **http://lemnos.local/** (or the address on the T-Display's screen, or in your
    router's device list). Android phones without mDNS need the address.
 
 If the saved network isn't found within 20 seconds of power-up, the setup network opens again (the radio keeps
@@ -82,7 +87,7 @@ controllers it knows can connect.
 | Xbox Adaptive Controller | The same, with its pair button on the top edge | Its Xbox button | D-pad, or switches in the jacks set to D-pad | A | B | Xbox button or Menu |
 | Wiimote, upright (one hand) | Press the red SYNC button under the battery cover | Any button | D-pad | A | B (the trigger) | Home |
 | Wiimote, sideways (two hands) | The same; then choose "Two hands" for it on the page | Any button | D-pad | 2 | 1 | Home |
-| Phone | Open `http://salient.local/pad` (or **Play from this phone**) | Open the page again | On-screen D-pad | PICK | BACK | Menu |
+| Phone | Open `http://lemnos.local/pad` (or **Play from this phone**) | Open the page again | On-screen D-pad | PICK | BACK | Menu |
 
 - **Xbox controllers** need current firmware: update them from the Xbox Accessories app (Windows or an Xbox) if they
   won't pair. Firmware 5 and later uses Bluetooth LE, which is what the radio expects.
@@ -140,14 +145,15 @@ everything else built in (the web server with WebSockets, mDNS, NTP, flash stora
 the same C core then builds for the Pico W against the Pico SDK.
 
 ```
-python tools/get_bluepad32.py        (once: Bluepad32 4.2.0 + its BTstack, patched, into ~/.salient-radio)
+python tools/get_bluepad32.py        (once: Bluepad32 4.2.0 + its BTstack, patched, into ~/.lemnos-radio)
 pio run                              (all three boards; or -e esp32dev, -e nodemcu-32s, -e ttgo-t-display)
 pio run -e ttgo-t-display -t upload --upload-port COM17
 python tools/make_release.py         (the files in dist/)
 ```
 
 On Windows, `build.cmd` does the same (`build ttgo-t-display -t upload --upload-port COM17`). It copies the source
-to `%USERPROFILE%\.salient-radio\src` first, because ESP-IDF can't build from a network share. Run it from cmd or
+to `%USERPROFILE%\.lemnos-radio\src` first and builds there, so the build trees stay out of the checkout (and ESP-IDF
+can't build from a network share). Run it from cmd or
 PowerShell, not Git Bash: ESP-IDF's tool installer refuses MSYS shells. `tools/term.py COM17 --reset` shows the boot
 log.
 
@@ -161,7 +167,7 @@ log.
 | `test/` | `run_tests.py`: builds `core/` with any C compiler (or `pip install ziglang`) and tests it; checks every time zone against the IANA database to the second, 2026–2036; writes `transcript.txt` for the SCORPIO side's tests |
 
 The SCORPIO side is `circuitpython/gamehost/radio.py`, tested by `circuitpython/tools/test_radio.py` (which also plays
-a whole two-player Salient game through the radio's lines).
+a whole two-player Island Rush through the radio's lines).
 
 ## Pico W (experimental)
 
@@ -177,5 +183,11 @@ The radio's own code is MIT, like the rest of the board's software. It's built o
 - **Bluepad32** (Apache 2.0) and **BTstack**. BTstack is free for non-commercial use; **a commercial product using
   the ESP32 build needs a BTstack license from [BlueKitchen](https://bluekitchen-gmbh.com)**. The Pico W build is
   covered by Raspberry Pi's BTstack license, which comes with the Pico SDK.
-- **ESP-IDF** and Espressif's **mDNS** component (Apache 2.0).
+- **ESP-IDF** and Espressif's **mDNS** component (Apache 2.0), and **cJSON** (MIT), which comes with ESP-IDF.
+- The **Pico SDK** (BSD 3-Clause) for the Pico W build; `pico/pico_sdk_import.cmake` is a copy of its file, with
+  its notice.
 - The display font is Daniel Hepper's **font8x8** (public domain).
+- The time zone rules in `core/tz_zones.inc` come from the **IANA time zone database** (public domain).
+
+None of these are in this repository: `tools/get_bluepad32.py` and the build fetch them. The release files contain
+them, so their licenses come with the firmware.

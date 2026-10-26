@@ -2,7 +2,7 @@
 # drivers, effects, the die roller, the board's geometry, controllers coming and going, plug-ins, and the host
 # running the example game (games/paint.py), the test pattern (games/testpattern.py) and the clock (games/clock.py)
 # on a fake clock, the time of day (walltime.py, with a fake RTC chip) and console command lines.
-#   py -3 tools/test_host.py          (Salient on the board: tools/test_salient.py)
+#   py -3 tools/test_host.py          (Island Rush on the board: tools/test_rush.py)
 
 import os
 import sys

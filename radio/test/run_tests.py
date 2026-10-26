@@ -18,7 +18,7 @@ from zoneinfo import ZoneInfo
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RADIO = os.path.dirname(HERE)
-BUILD = os.path.join(os.path.expanduser("~"), ".salient-radio", "test")
+BUILD = os.path.join(os.path.expanduser("~"), ".lemnos-radio", "test")
 EXE = os.path.join(BUILD, "test_core.exe" if os.name == "nt" else "test_core")
 SCAN = (2026, 2037)
 
@@ -27,7 +27,7 @@ def compiler(python):
     for cc in ("cc", "gcc", "clang"):
         if shutil.which(cc):
             return [cc]
-    for py in [python, os.path.join(os.path.expanduser("~"), ".salient-radio", "hostcc", "Scripts", "python.exe"),
+    for py in [python, os.path.join(os.path.expanduser("~"), ".lemnos-radio", "hostcc", "Scripts", "python.exe"),
                sys.executable]:
         if py and os.path.exists(py) and subprocess.run([py, "-m", "ziglang", "version"],
                                                          capture_output=True).returncode == 0:

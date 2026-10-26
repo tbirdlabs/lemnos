@@ -5,6 +5,7 @@ sdkconfig
 sdkconfig.*
 !sdkconfig.defaults
 !sdkconfig.defaults.*
+!pico/sdkconfig.h
 dist/
 managed_components/
 test/build/

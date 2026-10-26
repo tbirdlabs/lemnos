@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 # Makes the ready-to-flash files (README.md, "Flashing"), plus SHA256SUMS.txt. For each board:
-#   salient-radio-<board>-<version>.bin          first install: bootloader, partition table and firmware in one, at
+#   lemnos-radio-<board>-<version>.bin          first install: bootloader, partition table and firmware in one, at
 #                                                0x0. It erases the settings (the gap it fills holds them).
-#   salient-radio-<board>-<version>-update.bin   updates: the firmware alone, at 0x10000; keeps the WiFi network,
+#   lemnos-radio-<board>-<version>-update.bin   updates: the firmware alone, at 0x10000; keeps the WiFi network,
 #                                                settings and paired controllers.
 # Run after building every board:
 #
 #   build                                   (all three boards; build.cmd)
 #   py -3 tools/make_release.py             -> dist/
 #
-# Uses PlatformIO's esptool; the build folder is the one build.cmd uses (%USERPROFILE%\.salient-radio\pio), or
+# Uses PlatformIO's esptool; the build folder is the one build.cmd uses (%USERPROFILE%\.lemnos-radio\pio), or
 # --build for a plain  pio run  checkout (.pio/build).
 
 import argparse
@@ -42,8 +42,8 @@ def esptool():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--build", default=os.path.join(HOME, ".salient-radio", "pio", "build"))
-    ap.add_argument("--pico", default=os.path.join(HOME, ".salient-radio", "pico"))
+    ap.add_argument("--build", default=os.path.join(HOME, ".lemnos-radio", "pio", "build"))
+    ap.add_argument("--pico", default=os.path.join(HOME, ".lemnos-radio", "pico"))
     a = ap.parse_args()
     ver = version()
     dist = os.path.join(RADIO, "dist")
@@ -57,7 +57,7 @@ def main():
         if missing:
             print("%s: not built (%s); run: build %s" % (board, missing[0], board))
             continue
-        out = os.path.join(dist, "salient-radio-%s-%s.bin" % (board, ver))
+        out = os.path.join(dist, "lemnos-radio-%s-%s.bin" % (board, ver))
         cmd = esptool() + ["--chip", "esp32", "merge-bin", "-o", out, "--flash-mode", "dio", "--flash-freq", "40m",
                            "--flash-size", "4MB"]
         for addr, path in parts:
@@ -72,9 +72,9 @@ def main():
             print("%s  (%d KB)" % (f, os.path.getsize(f) // 1024))
     # the Pico W builds, if built (pico/README.md; the folders are the ones used here: --pico)
     for board, folder in (("picow", "build-picow"), ("pico2w", "build-pico2w")):
-        uf2 = os.path.join(a.pico, folder, "salient_radio.uf2")
+        uf2 = os.path.join(a.pico, folder, "lemnos_radio.uf2")
         if os.path.exists(uf2):
-            out = os.path.join(dist, "salient-radio-%s-%s.uf2" % (board, ver))
+            out = os.path.join(dist, "lemnos-radio-%s-%s.uf2" % (board, ver))
             shutil.copyfile(uf2, out)
             sums.append("%s  %s" % (hashlib.sha256(open(out, "rb").read()).hexdigest(), os.path.basename(out)))
             print("%s  (%d KB)" % (out, os.path.getsize(out) // 1024))

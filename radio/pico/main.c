@@ -1,6 +1,6 @@
-// The Salient radio on a Pico W / Pico 2 W (experimental): Bluetooth controllers (shared/bt.c, Bluepad32) sent to
+// The Lemnos radio on a Pico W / Pico 2 W (experimental): Bluetooth controllers (shared/bt.c, Bluepad32) sent to
 // the SCORPIO as IN / CTL lines over UART1 (GP4 TX, GP5 RX by default), the same protocol as the ESP32 build
-// (core/link.h, NOTES.md). No WiFi yet: no settings page, phones or time.
+// (core/link.h, docs/protocol.md). No WiFi yet: no settings page, phones or time.
 //
 // Everything runs on BTstack's run loop, so the hub here needs no locks: a 10 ms timer reads the UART, repeats held
 // directions, watches the BOOTSEL button (a press toggles pairing mode) and drives the LED (blinking while pairing,

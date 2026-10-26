@@ -1,4 +1,4 @@
-// Runs the USB page (Salient.html) without a browser: its script, with stand-ins for the page and for Web Serial,
+// Runs the USB page (Lemnos.html) without a browser: its script, with stand-ins for the page and for Web Serial,
 // talking to a desktop copy of the board software (tools/page_bridge.py: the real host and console hub) over a pipe.
 // Connects, then checks the HELLO answer, the lights, keys and the on-screen pad, the game and brightness (and that
 // they're remembered through a restart), the console, restarting without saved settings, and disconnecting.
@@ -11,7 +11,7 @@ const vm = require("vm");
 const { spawn } = require("child_process");
 
 const HERE = __dirname;
-const html = fs.readFileSync(path.join(HERE, "..", "Salient.html"), "utf8");
+const html = fs.readFileSync(path.join(HERE, "..", "Lemnos.html"), "utf8");
 const script = html.slice(html.lastIndexOf("<script>") + 8, html.lastIndexOf("</script>"));
 const FAILS = [];
 function check(name, ok, detail) {
@@ -101,7 +101,7 @@ Object.assign(globalThis, {
   requestAnimationFrame: (f) => setTimeout(f, 0), ResizeObserver: class { observe() { } }, confirm: () => true,
 });
 Object.defineProperty(globalThis, "navigator", { value: { serial }, configurable: true });   // Node 21+ has its own
-const t = vm.runInThisContext(script + "\n;({ link, board, view, form });", { filename: "Salient.html" });
+const t = vm.runInThisContext(script + "\n;({ link, board, view, form });", { filename: "Lemnos.html" });
 const $ = (id) => document.getElementById(id);
 const sent = () => written.join("");
 
@@ -110,7 +110,7 @@ const sent = () => written.join("");
     await $("connect").onclick();
     check("connects and the board answers", await until(() => t.link.ready), $("cstatus").textContent);
     check("status", $("cstatus").textContent === "Connected", $("cstatus").textContent);
-    check("games listed", await until(() => t.board.games.includes("salient") && t.board.games.includes("paint"), 3000), t.board.games);
+    check("games listed", await until(() => t.board.games.includes("rush") && t.board.games.includes("paint"), 3000), t.board.games);
     check("board kind and LED count", t.board.kind === "large" && t.board.count === 171, t.board);
     check("running game", await until(() => t.board.game === t.board.deflt && t.board.game !== ""), t.board.game);
     check("game list filled", $("game").children.length === t.board.games.length && !$("game").disabled);
@@ -134,25 +134,28 @@ const sent = () => written.join("");
     check("the pad's Menu", sent().endsWith("!IN p3 menu\n!IN p3 menu\n"));
     check("players listed", await until(() => $("players").children.length === 2), $("players").children.length);
 
-    // the setup form (Salient's options): player 1 Red against the computer, then a refusal, then New game
-    check("form: Salient's fields", await until(() => t.form.fields.some((f) => f.key === "side:usb-p1" &&
-          f.choices.some((c) => c[0] === "red"))), t.form.fields.map((f) => f.key));
-    check("form: drawn, Rush fields hidden", $("fields").children.some((e) => e.textContent === "Red lands at") &&
-          !$("fields").children.some((e) => e.textContent === "Players"));
-    Object.assign(t.form.picked, { "side:usb-p1": "red", "side:usb-p3": "out", red_seat: "2" });
+    // the setup form (Island Rush's options): player 1 at seat 2 of 3, player 3 sitting out, then a refusal, then
+    // New game
+    check("form: Island Rush's fields", await until(() => t.form.fields.some((f) => f.key === "players") &&
+          t.form.fields.some((f) => f.key === "seat:usb-p1") && t.form.fields.some((f) => f.key === "seat:usb-p3")),
+          t.form.fields.map((f) => f.key));
+    check("form: drawn", $("fields").children.some((e) => e.textContent === "Players"));
+    Object.assign(t.form.picked, { players: "3", "seat:usb-p1": "2", "seat:usb-p3": "out" });
     $("start").onclick();
     check("form: Start", await until(() => $("setupmsg").textContent === "Started."), $("setupmsg").textContent);
-    check("form: sent what's shown", /!START \{"side:usb-p1":"red","side:usb-p3":"out","red_seat":"2","level":"7"\}\n/.test(sent()),
+    check("form: sent what's shown (no color for a player sitting out)",
+          /!START \{"players":"3","seat:usb-p1":"2","color:usb-p1":"\d+","seat:usb-p3":"out"\}\n/.test(sent()),
           sent().split("\n").filter((l) => l.startsWith("!START")));
-    t.form.picked["side:usb-p3"] = "red";
+    t.form.picked["seat:usb-p3"] = "2";
+    t.form.touched.add("seat:usb-p3");
     $("start").onclick();
-    check("form: the board's refusal shown", await until(() => / are both Red\.$/.test($("setupmsg").textContent)),
+    check("form: the board's refusal shown", await until(() => / are both at seat 2\.$/.test($("setupmsg").textContent)),
           $("setupmsg").textContent);
-    t.form.picked["side:usb-p3"] = "blue";
-    t.form.touched.add("side:usb-p3");
+    t.form.picked["seat:usb-p3"] = "5";
+    t.form.touched.add("seat:usb-p3");
     $("newgame").onclick();
     check("form: New game", await until(() => $("setupmsg").textContent === "Started." && sent().includes("!NEWGAME\n")));
-    check("form: picks kept when the form comes again", t.form.picked["side:usb-p3"] === "blue");
+    check("form: picks kept when the form comes again", t.form.picked["seat:usb-p3"] === "5");
 
     $("game").value = "paint";
     $("game").onchange({ target: $("game") });

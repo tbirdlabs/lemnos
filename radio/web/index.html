@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Salient board</title>
+<title>Lemnos board</title>
 <style>
 :root {
   --bg: #f4f2ee; --card: #ffffff; --ink: #1d1f22; --muted: #6a6d73; --line: #e2dfd8;
@@ -60,7 +60,7 @@ footer { color: var(--muted); font-size: 13px; text-align: center; }
 <body>
 <main>
   <header>
-    <h1><span>Salient</span> board</h1>
+    <h1><span>Lemnos</span> board</h1>
     <div id="clock"></div>
   </header>
 
@@ -106,7 +106,7 @@ footer { color: var(--muted); font-size: 13px; text-align: center; }
       <button id="join" class="primary">Join and restart</button>
       <button id="forget_wifi" class="danger">Forget WiFi</button>
     </div>
-    <p class="note">After it restarts, it's at <b>salient.local</b> on that network (or the address on the board's
+    <p class="note">After it restarts, it's at <b>lemnos.local</b> on that network (or the address on the board's
       screen). If it can't join, it opens its own setup network again.</p>
   </section>
 
@@ -259,7 +259,7 @@ $("join").onclick = async () => {
   if (!ssid) { alert("Pick a network (Scan), or choose Other and type its name."); return; }
   try {
     await api("/api/wifi", { ssid, pass: $("pass").value });
-    $("wstatus").textContent = "Restarting to join " + ssid + "… then open http://salient.local/";
+    $("wstatus").textContent = "Restarting to join " + ssid + "… then open http://lemnos.local/";
   } catch (e) { alert(e.message); }
 };
 $("forget_wifi").onclick = async () => {

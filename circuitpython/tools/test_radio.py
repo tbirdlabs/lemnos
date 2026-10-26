@@ -1,8 +1,8 @@
 # Desktop test of the radio hub (gamehost/radio.py) and what the host does with it, over a fake UART: the HELLO
 # exchange, controllers coming and going by slot, noise ignored, settings (brightness, switching games), the time
 # (walltime.tell, with daylight saving and the RTC chip), the console commands, a session recorded from the radio's
-# own C code (radio/test/transcript.txt, written by radio/test/run_tests.py), and a whole two-player Salient game
-# played with nothing but IN lines from the radio.
+# own C code (radio/test/transcript.txt, written by radio/test/run_tests.py), and a whole two-player Island Rush
+# game played with nothing but IN lines from the radio.
 #   py -3 tools/test_radio.py
 
 import os
@@ -106,11 +106,11 @@ def link():
     """HELLO until the radio answers; slots become controllers; noise is ignored."""
     h, uart, radio = with_radio()
     h.frame(0.0)
-    check("link: HELLO at start", uart.sent() == ["HELLO 2026.10.24"])
+    check("link: HELLO at start", uart.sent() == ["HELLO 2026.10.25"])
     run_frames(h, 0.025, 2.9)
     check("link: not again at once", uart.sent() == [])
     run_frames(h, 3.0, 3.1)
-    check("link: again after 3 s", uart.sent() == ["HELLO 2026.10.24"])
+    check("link: again after 3 s", uart.sent() == ["HELLO 2026.10.25"])
 
     # noise: a floating RX pin, half a line, junk, things out of range
     uart.feed(b"\x00\xff\xfe\x80garbage\n")
@@ -132,7 +132,7 @@ def link():
     sent = uart.sent()
     check("link: answers with its version, the game and the games",
           sent[:2] == ["STATE fw " + gamehost.VERSION, "STATE game recorder"] and sent[2] == "STATE brightness default" and sent[3].startswith("GAMES ") and
-          "salient" in sent[3].split(), sent)
+          "rush" in sent[3].split(), sent)
     run_frames(h, 3.8, 10.0)
     check("link: no more HELLO once it answered", uart.sent() == [])
 
@@ -211,7 +211,7 @@ def settings():
     check("settings: no such game: keeps playing", h.name == "paint")
     names = host.game_names()                         # (every game in games/: sorted, and adding one mustn't break this)
     check("settings: game names", names == sorted(names) and
-          {"clock", "paint", "rush", "salient", "testpattern", "fire", "fireflies", "aurora"} <= set(names), names)
+          {"clock", "paint", "rush", "testpattern", "fire", "fireflies", "aurora", "rain"} <= set(names), names)
 
 
 class FakeChip:
@@ -307,44 +307,40 @@ def transcript():
     check("transcript: radio", radio.version == "1.0.0")
 
 
-def salient_two_players():
-    """A whole two-player Invasion of Salient, both players on radio controllers (an Xbox and a Wiimote), every
-    press an IN line through the hub and the host; it must end as the engine says the same moves end."""
-    import test_salient as TS
-    from games.salient import ai as AI
-    from games.salient import game as G
-    from games.salient.rules import DEFAULTS
-    h, uart, radio = with_radio(G.Game, "salient")
+def rush_two_players():
+    """A whole two-player Island Rush, both players on radio controllers (an Xbox and a Wiimote), set up on the
+    board and played with every press an IN line through the hub and the host; every move must land as picked."""
+    import test_rush as TR
+    from games.rush import game as G
+    h, uart, radio = with_radio(G.Game, "rush")
     g = h.game
     lob = h.lobby
-    clk = TS.Clock(h)
+    clk = TR.Clock(h)
 
     def via_radio(game, clock, c, a):
         uart.feed("IN p%s %s\n" % (c.id[-1], a))
-        clock.t += TS.DT
+        clock.t += TR.DT
         h.frame(clock.t)
 
-    TS.send = via_radio
+    TR.send = via_radio
     uart.feed("HELLO 1.0.0\nCTL p1 connected xbox\nCTL p2 connected wiimote\n")
     clk.t = drain(h, uart, clk.t)
     c1 = h.board.controls.find("radio-p1")
     c2 = h.board.controls.find("radio-p2")
-    check("salient: two radio players", c1 in h.board.controllers and c2 in h.board.controllers)
-    via_radio(g, clk, c1, "pick")                            # p1 joins: Red by default
-    via_radio(g, clk, c1, "pick")
-    check("salient: p1 chose Red (Invasion)", lob.choices.get("side:radio-p1") == "red", lob.choices)
-    via_radio(g, clk, c2, "pick")
-    via_radio(g, clk, c2, "pick")
-    check("salient: p2 joined as the other side", lob.choices.get("side:radio-p2") == "blue", lob.choices)
-    via_radio(g, clk, c1, "pick")
-    check("salient: started", lob.state == "play", lob.state)
-    seed = 15
-    g.start_invasion(clk.t, 1, c1, c2, seed)                 # the board's seed is random; fix it for the test
-    TS.play_through("salient over the radio", g, clk, {"radio-p1": TS.drive_arrows, "radio-p2": TS.drive_arrows})
-    TS.same_game("salient over the radio", g, seed, G.face_of(1), dict(DEFAULTS))
-    FAILS.extend(TS.FAILS)
-    print("%-40s %s, winner %d, round %d, %d moves" % ("two players over the radio", "ok" if not TS.FAILS else "..",
-                                                       g.st.winner, g.st.round, len(g.st.log)))
+    check("rush: two radio players", c1 in h.board.controllers and c2 in h.board.controllers)
+    for c in (c1, c2):                                       # join, then a corner and a color as offered
+        for _ in range(3):
+            via_radio(g, clk, c, "pick")
+        check("rush: %s joined with a corner and a color" % c.id, lob.choices.get("seat:" + c.id, "out") != "out",
+              lob.choices)
+    check("rush: p1 leads, on how many play", lob.editing(c1) == "players", lob.editing(c1))
+    via_radio(g, clk, c1, "pick")                            # two players
+    via_radio(g, clk, c1, "pick")                            # start
+    check("rush: started", lob.state == "play", lob.state)
+    TR.play_through("rush over the radio", g, clk, {"radio-p1": TR.drive_arrows, "radio-p2": TR.drive_arrows}, 15)
+    FAILS.extend(TR.FAILS)
+    print("%-40s %s, winner seat %d, round %d, %d moves" % ("two players over the radio", "ok" if not TR.FAILS else "..",
+                                                            g.seats[g.st.winner].seat, g.st.round, len(g.st.log)))
 
 
 if __name__ == "__main__":
@@ -353,5 +349,5 @@ if __name__ == "__main__":
     time_of_day()
     commands()
     transcript()
-    salient_two_players()
+    rush_two_players()
     print("%d failed" % len(FAILS) if FAILS else "all passed")

@@ -31,7 +31,7 @@ class Game(BaseGame):
 ```
 
 Put `GAME = "hello"` in `config.py` and it runs at power-up. A bigger game can be a folder, `games/NAME/`, with its
-`Game` class in `game.py` and anything else it needs beside it (Salient is `games/salient/`).
+`Game` class in `game.py` and anything else it needs beside it (Island Rush is `games/rush/`).
 
 Every frame (40 a second) the host (while the game is being played; between games the lobby has the controllers
 and the lights, see [A setup](#a-setup-on-the-board-and-the-usb-page-optional)):
@@ -69,8 +69,9 @@ Some ground rules that keep games working on the real board:
 - **`draw` only draws.** Don't change the game there; the host may skip or repeat a draw.
 - **Draw everything, every frame.** The lights start each frame dark. You don't need to remember what you lit last
   time.
-- **Keep the rules apart from the board.** Salient's rules (`engine.py`) and computer player (`ai.py`) import nothing
-  from `gamehost`, so they also run in desktop tests and simulators. `game.py` is the only part that knows about
+- **Keep the rules apart from the board.** Island Rush's rules (`engine.py`) and computer player (`ai.py`) use only
+  the board's shape (`gamehost/geometry.py`), never lights or controllers, so they also run in desktop tests and its
+  simulator (`tools/sim_rush.py`). `game.py` is the only part that knows about
   lights and controllers. It's worth doing the same.
 
 ## The board: `gamehost/geometry.py`
@@ -137,8 +138,8 @@ Colors are `(r, g, b)`, each 0-255; lower is dimmer. The board caps the total cu
 has to, so don't worry about lighting everything.
 
 A spot's 3 lights read differently from different seats: the left light for seat 1 is the right one for seat 4.
-Symmetric patterns read the same from everywhere. Salient shows 1 unit as the middle light, 2 as the outer two and 3
-as all three.
+Symmetric patterns read the same from everywhere. Island Rush shows 1 light as the middle one, 2 as the outer two and
+3 as all three.
 
 **Effects** ([`gamehost/fx.py`](../circuitpython/gamehost/fx.py)): pass one after the colors, for the whole group or as
 a list with one per light.
@@ -178,7 +179,7 @@ dice.d(6)                               # a random 1-6, if the game doesn't keep
 dice.seed()                             # a random 32-bit number to seed a game's own generator
 ```
 
-Seed your own generator from `dice.seed()` and keep the seed, and a game can be replayed exactly. Salient does this.
+Seed your own generator from `dice.seed()` and keep the seed, and a game can be replayed exactly. Island Rush does this.
 
 ## The time of day: `gamehost/walltime.py`
 
@@ -215,7 +216,7 @@ A `controller` in `event()` is the same object every time for the same device, s
 
 **Design for one switch.** The least a controller can send is `move` (the board scans for the player, stepping at a
 steady pace) and `pick`. If your game needs `back`, check `"back" in controller.can`, and when it isn't there, add a
-stop the player can pick instead. Salient puts a way-out stop at the end of each row and on the bar. Arrows are
+stop the player can pick instead. The board's lobby puts a way-back stop in each setup field. Arrows are
 nice to have, never required.
 
 **Controllers come and go.** Wired ones arrive at power-up. Gamepads on I2C boards and the serial console arrive the
@@ -286,7 +287,7 @@ and for the page, `show` (`{key: [values]}`: show the field only while those fie
 `note` (a line under it). The lobby calls `options(choices)` again whenever something changes, so the form can follow
 what's chosen: fewer players to choose from once more have joined, a difficulty only when one person plays the
 computer. `setup()` gets every field's value, also from the page, so check them: a controller can leave in between.
-Island Rush (`games/rush/game.py`) and Salient (`games/salient/game.py`) are full examples.
+Island Rush (`games/rush/game.py`) is a full example.
 
 **A card for the game picker:** a picture of your game, drawn while people choose. In a one-file game, a
 module-level `card(lights, now)`; in a folder, `card.py` with `draw(lights, now)`, so the picker can show it without
@@ -308,7 +309,7 @@ h.board.controls.feed(pad, "move")
 h.frame(0.0)                             # one frame at t = 0 s; look at h.game, or h.board.lights.sent
 ```
 
-`tools/test_host.py` tests the example game this way, and `tools/test_salient.py` plays whole Salient games through
+`tools/test_host.py` tests the example game this way, and `tools/test_rush.py` plays whole Island Rush games through
 the board's controls.
 
 On the board, set `GAME` in `config.py`. The USB serial console works as up to 6 controllers: type m (move), n (move

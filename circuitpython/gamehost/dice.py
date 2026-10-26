@@ -1,5 +1,5 @@
 # The die roller for any game: a white light runs along a seat's bar, then laps again and slows to stop on the
-# result, and holds there for a moment. Salient shows its d10 this way over the chance (green out of 10).
+# result, and holds there for a moment. Island Rush shows its d10 this way over the chance (green out of 10).
 #
 #   roll = dice.Roll(now, result)              # result 1..n (n = 10 for a bar); the game rolls it however it likes
 #   ... every frame:  roll.draw(lights, seat, background)   # background: the bar's 10 colors under the light
@@ -7,7 +7,7 @@
 #   roll.duration                               # seconds from start to done (to schedule what comes next)
 #
 # dice.d(n) rolls 1..n for games that don't keep their own random numbers. dice.seed() is a random 32-bit number
-# to start a game's own generator with (Salient seeds its engine's d10 with it, so a game can be replayed from its
+# to start a game's own generator with (Island Rush seeds its engine's d10 with it, so a game can be replayed from its
 # seed). The timing follows config.EFFECT_TIME_SCALE, like every effect.
 
 import config

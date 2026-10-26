@@ -52,16 +52,16 @@ static void test_link(void) {
     char l1[] = "HELLO 2026.10.20";
     link_msg_t m = link_parse(l1);
     CHECK(m.type == MSG_HELLO && strcmp(m.key, "2026.10.20") == 0, "HELLO");
-    char l2[] = "STATE game  salient ";
+    char l2[] = "STATE game  rush ";
     m = link_parse(l2);
-    CHECK(m.type == MSG_STATE && strcmp(m.key, "game") == 0 && strcmp(m.value, "salient") == 0, "STATE: %s=%s", m.key,
+    CHECK(m.type == MSG_STATE && strcmp(m.key, "game") == 0 && strcmp(m.value, "rush") == 0, "STATE: %s=%s", m.key,
           m.value);
     char l3[] = "ACK brightness";
     m = link_parse(l3);
     CHECK(m.type == MSG_ACK && strcmp(m.key, "brightness") == 0, "ACK");
-    char l4[] = "GAMES clock paint salient";
+    char l4[] = "GAMES clock paint rush";
     m = link_parse(l4);
-    CHECK(m.type == MSG_GAMES && strcmp(m.key, "clock paint salient") == 0, "GAMES");
+    CHECK(m.type == MSG_GAMES && strcmp(m.key, "clock paint rush") == 0, "GAMES");
     char l5[] = "PAIR";
     m = link_parse(l5);
     CHECK(m.type == MSG_PAIR && strcmp(m.key, "on") == 0, "PAIR");

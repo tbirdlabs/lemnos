@@ -1,4 +1,4 @@
-# Salient radio: original ESP32 only (dual-mode Bluetooth: Classic for the Wiimote, BLE for Xbox controllers).
+# Lemnos radio: original ESP32 only (dual-mode Bluetooth: Classic for the Wiimote, BLE for Xbox controllers).
 CONFIG_IDF_TARGET="esp32"
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 CONFIG_PARTITION_TABLE_CUSTOM=y

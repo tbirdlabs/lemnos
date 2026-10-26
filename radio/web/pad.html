@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Salient pad</title>
+<title>Lemnos pad</title>
 <style>
 :root { --bg: #16171a; --ink: #ecebe8; --muted: #8d9097; --pad: #26282d; --edge: #3a3d44; --press: #fb923c;
         --pick: #c2410c; --pick-press: #fb923c; --ok: #4ade80; --bad: #f87171; }
@@ -74,14 +74,14 @@ let ws = null, dirs = 0, pick = false, back = false, menu = false, sent = "", al
 
 function phoneId() {
   let id = null;
-  try { id = localStorage.getItem("salient-pad-id"); } catch (e) {}
+  try { id = localStorage.getItem("lemnos-pad-id") || localStorage.getItem("salient-pad-id"); } catch (e) {}  // (old name)
   if (!id || !/^[0-9a-f]{12}$/.test(id)) {
     const b = new Uint8Array(6);
     if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(b);
     else for (let i = 0; i < 6; i++) b[i] = Math.floor(Math.random() * 256);
     id = Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
-    try { localStorage.setItem("salient-pad-id", id); } catch (e) {}
   }
+  try { localStorage.setItem("lemnos-pad-id", id); } catch (e) {}
   return id;
 }
 

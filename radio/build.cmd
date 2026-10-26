@@ -1,11 +1,11 @@
 @echo off
 rem Builds the radio firmware.  build [env ...] [-t upload --upload-port COM17] ...   (default env: all three boards)
-rem ESP-IDF can't build from a network share (S:\ is \\SERVER\salient), so this mirrors radio\ to a local folder,
-rem %USERPROFILE%\.salient-radio\src, and builds there. On a local checkout, plain  pio run  works too.
+rem It mirrors radio\ to %USERPROFILE%\.lemnos-radio\src and builds there, so the build trees stay out of the checkout
+rem (and ESP-IDF can't build from a network share). Plain  pio run  in radio\ works too.
 rem Run it from cmd or PowerShell, not Git Bash: ESP-IDF's tool installer refuses MSYS shells.
 setlocal
 set "HERE=%~dp0"
-set "WORK=%USERPROFILE%\.salient-radio"
+set "WORK=%USERPROFILE%\.lemnos-radio"
 set "PLATFORMIO_WORKSPACE_DIR=%WORK%\pio"
 set "PIO=%USERPROFILE%\.platformio\penv\Scripts\pio.exe"
 if not exist "%PIO%" set "PIO=pio"

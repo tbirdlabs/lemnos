@@ -1,5 +1,6 @@
-// Settings and known controllers in flash (NVS namespace "salient"). Bluepad32/BTstack keep the pairing keys
-// themselves, in their own NVS namespaces.
+// Settings and known controllers in flash (NVS namespace "lemnos"; on the first start after an update from radio
+// 1.1.0 or older they move there from "salient"). Bluepad32/BTstack keep the pairing keys themselves, in their own
+// NVS namespaces.
 #pragma once
 
 #include "hub.h"

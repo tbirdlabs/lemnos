@@ -1,6 +1,6 @@
 # The radio co-processor (radio/ in this repo): an ESP32 that brings Bluetooth controllers (Wiimote, Xbox, Xbox
 # Adaptive Controller), phones as controllers, a web settings page and the time of day, over a UART on the
-# SCORPIO's TX/RX pins (docs/controllers.md, "The radio"; the protocol is in NOTES.md). A controller hub: each
+# SCORPIO's TX/RX pins (docs/controllers.md, "The radio"; the protocol is in docs/protocol.md). A controller hub: each
 # player slot p1..p6 on the radio is one controller here, whatever device is in it.
 #
 # From the radio (text lines, 115200 8N1):
@@ -11,10 +11,10 @@
 #   SET brightness 6  /  SET brightness default  /  SET game clock     (the host applies them)
 # To the radio:
 #   HELLO <version>     at start, again every few seconds until the radio answers
-#   STATE game salient  the game running, whenever it changes;  STATE fw 2026.10.20  its version, after a HELLO
+#   STATE game rush     the game running, whenever it changes;  STATE fw 2026.10.20  its version, after a HELLO
 #   STATE brightness 6  the brightness setting (1-10 or "default"), after a HELLO and whenever it changes. The board
 #                       keeps both settings itself (saved.py), whoever set them; the radio's page follows them
-#   GAMES clock paint salient testpattern             the games on the board, after a HELLO
+#   GAMES clock paint rush testpattern                the games on the board, after a HELLO
 #   ACK <setting>       a SET arrived
 #   PAIR / PAIR off     pairing mode (the console's "radio pair" command)
 # Unknown lines are ignored both ways. With no radio attached nothing arrives, so nothing changes. The lines are

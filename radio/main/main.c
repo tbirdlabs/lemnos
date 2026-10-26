@@ -1,5 +1,5 @@
-// The Salient radio co-processor: Bluetooth controllers, WiFi (web settings, phone controller, NTP time), and a UART
-// link to the SCORPIO that carries it all as text lines (core/link.h, NOTES.md). See README.md.
+// The Lemnos radio co-processor: Bluetooth controllers, WiFi (web settings, phone controller, NTP time), and a UART
+// link to the SCORPIO that carries it all as text lines (core/link.h, docs/protocol.md). See README.md.
 
 #include <btstack_port_esp32.h>
 #include <btstack_run_loop.h>

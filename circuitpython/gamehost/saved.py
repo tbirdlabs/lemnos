@@ -1,4 +1,4 @@
-# Settings the board remembers through power-off: what was last set from the USB page (Salient.html) or the radio's
+# Settings the board remembers through power-off: what was last set from the USB page (Lemnos.html) or the radio's
 # web page, "game" (the one to start at power-up) and "brightness" (1-10). config.py keeps the defaults; a saved
 # setting wins over it until it's set back to "default" (or forget() runs: the page's "Back to config.py").
 # They live in the RP2040's non-volatile memory (microcontroller.nvm), which CircuitPython can write even while the

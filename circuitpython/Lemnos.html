@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Salient board</title>
+<title>Lemnos board</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2l12 7v14l-12 7-12-7V9z' fill='%23c2410c'/%3E%3C/svg%3E">
 <!--
   The board's USB page: open this file (it's on the CIRCUITPY drive) in Edge, Chrome or Firefox with the board plugged in,
@@ -105,7 +105,7 @@ footer { color: var(--muted); font-size: 13px; text-align: center; margin-top: 8
 <body>
 <main>
   <header>
-    <h1><span>Salient</span> board</h1>
+    <h1><span>Lemnos</span> board</h1>
     <div class="conn">
       <div class="status"><span id="cdot" class="dot"></span><span id="cstatus">Not connected</span></div>
       <button id="connect" class="primary">Connect</button>
@@ -220,7 +220,7 @@ footer { color: var(--muted); font-size: 13px; text-align: center; margin-top: 8
       </section>
     </div>
   </div>
-  <footer id="foot">Salient board · USB page</footer>
+  <footer id="foot">Lemnos board · USB page</footer>
 </main>
 <script>
 "use strict";
@@ -462,7 +462,7 @@ function hello() {
   if (!link.port || link.ready || link.state === "stopped") return;
   link.send("HELLO page 1");
   link.tries++;
-  if (link.tries === 9) {                      // about 12 s: Salient alone takes a few seconds to load
+  if (link.tries === 9) {                      // about 12 s: a big game takes a few seconds to load
     $("silent").classList.remove("hidden");
     status("Connected, no answer", "warn");
   }

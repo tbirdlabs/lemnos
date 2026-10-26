@@ -1,4 +1,4 @@
-# Salient board wiring
+# Lemnos board wiring
 
 The reference for wiring the board to the Adafruit Feather RP2040 SCORPIO. The software side lives in
 `circuitpython/config.py`; if the wiring changes, change it there and nowhere else.

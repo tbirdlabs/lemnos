@@ -1,4 +1,4 @@
-# The USB page: Salient.html on the CIRCUITPY drive, opened in Edge, Chrome or Firefox on the computer the board is
+# The USB page: Lemnos.html on the CIRCUITPY drive, opened in Edge, Chrome or Firefox on the computer the board is
 # plugged into. Settings, an on-screen controller, the board's lights live, the time from the computer and the
 # console, over the USB serial console (Web Serial), with nothing to install.
 # It shares the console with people typing (hubs.Console): a line from the page starts with "!" and every line the
@@ -8,20 +8,20 @@
 #   !HELLO page 1         the page connected (or reconnected); the board answers with everything below
 #   !WATCH on|off         send the lights (LEDS), or stop
 #   !BYE                  the page is closing: its players leave (closing the port does the same)
-#   !START {"mode": "invasion", ...}       start a game set up on the page (Game.setup); answered with SETUP
+#   !START {"players": "2", ...}           start a game set up on the page (Game.setup); answered with SETUP
 #   !NEWGAME              the game running, made afresh: back at its setup on the board; answered with SETUP
 # To the page:
 #   @HELLO 2026.10.20     the board software (gamehost.VERSION)
 #   @BOARD large 171      config.BOARD and the LED count: 37 x 3 on the hexes, 6 x 10 on the bars, (small) 44 lines
-#   @GAMES clock paint salient testpattern
-#   @STATE default_game salient            config.GAME, the game "SET game default" goes back to
+#   @GAMES clock paint rush testpattern
+#   @STATE default_game rush               config.GAME, the game "SET game default" goes back to
 #   @STATE default_brightness 0.05         config.BRIGHTNESS (0-1), what "SET brightness default" goes back to
-#   @STATE game salient                    the game running, whenever it changes
+#   @STATE game rush                       the game running, whenever it changes
 #   @STATE brightness 6                    1-10 or "default", whenever it changes
 #   @PLAYERS [{"id": "wired0", "name": "wired", "seat": 1}, ...]   the controllers connected, when that changes
 #   @LEDS <base64>        every LED's (r, g, b) in lights.py's logical order, as the game drew it (before brightness
 #                         and the power cap), when it changes, at most WATCH_FPS times a second
-#   @OPTIONS [{"key": "mode", "label": "Game", "choices": [["invasion", "Invasion"], ...], "value": "invasion"}, ...]
+#   @OPTIONS [{"key": "players", "label": "Players", "choices": [["2", "2 players"], ...], "value": "2"}, ...]
 #                         the game's setup form (Game.options()), when it changes (another game, controllers)
 #   @SETUP ok  /  @SETUP <why not>         the answer to START or NEWGAME
 #   @ACK brightness       a SET arrived

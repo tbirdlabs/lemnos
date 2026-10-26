@@ -94,8 +94,8 @@ def hello():
     ser.text = "\n!HELLO page 1\n"
     h.frame(0.025)
     got = taken(out)
-    check("page: HELLO answer", got[:2] == ["HELLO 2026.10.24", "BOARD %s %d" % (config.BOARD, COUNT)], got)
-    check("page: games", len(got) > 2 and got[2].startswith("GAMES ") and "salient" in got[2].split(), got)
+    check("page: HELLO answer", got[:2] == ["HELLO 2026.10.25", "BOARD %s %d" % (config.BOARD, COUNT)], got)
+    check("page: games", len(got) > 2 and got[2].startswith("GAMES ") and "rush" in got[2].split(), got)
     check("page: config's game and brightness", "STATE default_game " + config.GAME in got and
           "STATE default_brightness %g" % config.BRIGHTNESS in got, got)
     h.frame(0.05)
@@ -359,12 +359,12 @@ def switching():
     """Switching games unloads the old one's modules (so games can take turns in the board's RAM)."""
     saved.use(bytearray(256))
     h = host.Host(host.load_game("paint"), host.Board(Lights(), Controls(hardware=False)), name="paint")
-    h.switch("salient", 0.0)
+    h.switch("rush", 0.0)
     check("switch: paint unloaded", "games.paint" not in sys.modules and not hasattr(sys.modules["games"], "paint"))
-    check("switch: salient loaded", h.name == "salient" and "games.salient.engine" in sys.modules)
+    check("switch: rush loaded", h.name == "rush" and "games.rush.engine" in sys.modules)
     h.switch("clock", 0.1)
-    check("switch: salient unloaded, all of it", not [k for k in sys.modules if k.startswith("games.salient")],
-          [k for k in sys.modules if k.startswith("games.salient")])
+    check("switch: rush unloaded, all of it", not [k for k in sys.modules if k.startswith("games.rush")],
+          [k for k in sys.modules if k.startswith("games.rush")])
     h.switch("nosuchgame", 0.2)
     check("switch: a failed switch brings the old game back", h.name == "clock" and "games.clock" in sys.modules and
           type(h.game).__module__ == "games.clock")
@@ -389,47 +389,18 @@ def switching():
     real = host.load_game
     host.load_game = no_room
     try:
-        h.apply("game", "salient", 0.4)
+        h.apply("game", "rush", 0.4)
         restarted = False
     except Restarted:
         restarted = True
     finally:
         host.load_game = real
-    check("switch: no room, so a restart, with the game saved first", restarted and saved.get("game") == "salient",
+    check("switch: no room, so a restart, with the game saved first", restarted and saved.get("game") == "rush",
           saved.get("game"))
     h.restart = None
     msg = h.apply("game", "nosuchgame", 0.5)
-    check("switch: no such game: the saved one stays", msg and saved.get("game") == "salient", (msg, saved.get("game")))
+    check("switch: no such game: the saved one stays", msg and saved.get("game") == "rush", (msg, saved.get("game")))
 
-
-def salient_setup():
-    """Salient's form and setup(): a side for each controller (or sitting out), the computer on any side no one
-    takes (Island Rush is its own game now: tools/test_rush.py)."""
-    from games.salient.game import Game as Salient
-    ctl = Controls(hardware=False)
-    a = ctl.get("usb-p1", "player 1 (USB)", None, ())
-    b = ctl.get("wired0", "wired", 4, ())
-    g = Salient(host.Board(Lights(), ctl))
-    o = {f["key"]: f for f in g.options()}
-    check("salient: fields", list(o) == ["side:usb-p1", "side:wired0", "red_seat", "level"], list(o))
-    check("salient: a side each, the first Red", [ch[0] for ch in o["side:usb-p1"]["choices"]] == ["out", "red", "blue"]
-          and o["side:usb-p1"]["value"] == "red" and o["side:wired0"]["value"] == "out")
-    check("salient: the page's form keeps only its parts", usbpage._field(o["side:usb-p1"])["choices"][1] ==
-          ["red", "Red, the invader"] and "player" not in usbpage._field(o["side:usb-p1"]))
-    base = {"side:usb-p1": "red", "side:wired0": "out", "red_seat": "3", "level": "5"}
-    check("salient: invasion starts", g.setup(base, 0.0) is None and g.st is not None)
-    check("salient: red at seat 3, blue opposite, the computer blue",
-          [(s.seat, s.ctrl) for s in g.seats] == [(3, a), (6, None)] and g.level == 5, [(s.seat, s.ctrl) for s in g.seats])
-    check("salient: two humans", g.setup(dict(base, **{"side:wired0": "blue"}), 0.0) is None and g.seats[1].ctrl is b)
-    check("salient: computer against computer", g.setup(dict(base, **{"side:usb-p1": "out"}), 0.0) is None and
-          g.seats[0].ctrl is None and g.seats[1].ctrl is None)
-    check("salient: two on one side", g.setup(dict(base, **{"side:wired0": "red"}), 0.0) ==
-          "player 1 (USB) and wired are both Red.")
-    o = {f["key"]: f for f in g.options({"side:usb-p1": "out", "side:wired0": "blue"})}
-    check("salient: on the board, Red lands opposite a lone Blue", o["red_seat"]["value"] == "1" and "level" in o,
-          o["red_seat"]["value"])
-    o = {f["key"]: f for f in g.options({"side:usb-p1": "red", "side:wired0": "blue"})}
-    check("salient: no difficulty with two players", "level" not in o, list(o))
 
 if __name__ == "__main__":
     hello()
@@ -438,6 +409,5 @@ if __name__ == "__main__":
     setup_form()
     console_help()
     switching()
-    salient_setup()
     print("all passed" if not FAILS else "%d failed" % len(FAILS))
     sys.exit(1 if FAILS else 0)

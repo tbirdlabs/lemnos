@@ -1,4 +1,4 @@
-# Salient controllers
+# Lemnos controllers
 
 Every player plays with the same few actions: **move**, **pick** and **back**. Some controllers add **move back**
 (an encoder turned the other way) or a D-pad (**up**, **down**, **left**, **right**). What works for one player may
@@ -17,7 +17,7 @@ Controllers are listed in `circuitpython/config.py`. Four kinds of source feed t
   phones, up to six players: the `"radio"` hub in `gamehost/radio.py` ([below](#the-radio)).
 - **Outboard controller boards** on the I2C bus (a Pico reading a switch box, and so on), chained on the STEMMA QT
   port: the `"i2c"` hub in `gamehost/hubs.py`.
-- **The USB page** (`Salient.html` on the CIRCUITPY drive, in Edge, Chrome or Firefox): an on-screen D-pad and the
+- **The USB page** (`Lemnos.html` on the CIRCUITPY drive, in Edge, Chrome or Firefox): an on-screen D-pad and the
   keyboard, up to six players (`usb-p1`..`usb-p6`), through the `"console"` hub (`gamehost/usbpage.py`).
 - **The USB serial console**, for testing: up to 6 virtual controllers: the `"console"` hub.
 
@@ -92,7 +92,7 @@ console: `radio pair` (`radio` alone lists who's connected). Without a radio, th
 and nothing else happens.
 
 The board also takes settings from the radio's web page (brightness, the game to play; the host applies them) and
-the time of day (the clock). The UART protocol is in [NOTES.md](../NOTES.md#radio-protocol).
+the time of day (the clock). The UART protocol is in [docs/protocol.md](protocol.md#radio-protocol).
 
 ## I2C controller boards (protocol v1)
 

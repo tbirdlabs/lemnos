@@ -1,4 +1,4 @@
-# Salient radio on a Pico W / Pico 2 W (experimental)
+# Lemnos radio on a Pico W / Pico 2 W (experimental)
 
 The same Bluetooth layer (`../shared/bt.c`) and core (`../core/`) as the ESP32 build, on the Pico SDK. It sends the
 SCORPIO the same lines (`HELLO`, `IN`, `CTL`; it answers `HELLO` and `PAIR`), so the SCORPIO can't tell the
@@ -33,7 +33,7 @@ cmake -B build2 -G Ninja -DPICO_SDK_PATH=/path/to/pico-sdk -DPICO_BOARD=pico2_w 
 cmake --build build
 ```
 
-Hold BOOTSEL while plugging it in and copy `build/salient_radio.uf2` onto the RPI-RP2 (or RP2350) drive. The USB
+Hold BOOTSEL while plugging it in and copy `build/lemnos_radio.uf2` onto the RPI-RP2 (or RP2350) drive. The USB
 serial port shows its log.
 
 On Windows without the SDK's tool builds, add `-Dpioasm_DIR=…/pioasm -Dpicotool_DIR=…/picotool` pointing at the

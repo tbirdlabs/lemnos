@@ -148,7 +148,7 @@ static esp_err_t api_state(httpd_req_t* r) {
     cJSON_AddNumberToObject(w, "rssi", ns.rssi);
     cJSON_AddBoolToObject(w, "setup", ns.ap_on);
     cJSON_AddStringToObject(w, "setup_name", ns.ap_ssid);
-    cJSON_AddStringToObject(w, "host", "salient.local");
+    cJSON_AddStringToObject(w, "host", "lemnos.local");
 
     cJSON* t = cJSON_AddObjectToObject(j, "time");
     cJSON_AddStringToObject(t, "source", clock_source());

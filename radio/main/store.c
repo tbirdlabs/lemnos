@@ -1,5 +1,6 @@
 #include "store.h"
 
+#include <stdbool.h>
 #include <string.h>
 
 #include "esp_log.h"
@@ -7,7 +8,8 @@
 #include "nvs_flash.h"
 
 static const char* TAG = "store";
-static const char* NS = "salient";
+static const char* NS = "lemnos";
+static const char* OLD_NS = "salient";            // before the board was named Lemnos (radio 1.1.0 and older)
 
 void store_init(void) {
     esp_err_t err = nvs_flash_init();
@@ -25,12 +27,10 @@ static void get_str(nvs_handle_t h, const char* key, char* out, size_t n) {
         out[0] = 0;
 }
 
-void store_load(radio_settings_t* s, known_table_t* k) {
-    memset(s, 0, sizeof(*s));
-    known_init(k);
+static bool load_from(const char* ns, radio_settings_t* s, known_table_t* k) {
     nvs_handle_t h;
-    if (nvs_open(NS, NVS_READONLY, &h) != ESP_OK)
-        return;                                      // first boot
+    if (nvs_open(ns, NVS_READONLY, &h) != ESP_OK)
+        return false;
     get_str(h, "tz", s->tz, sizeof(s->tz));
     get_str(h, "game", s->game, sizeof(s->game));
     get_str(h, "ssid", s->ssid, sizeof(s->ssid));
@@ -43,6 +43,23 @@ void store_load(radio_settings_t* s, known_table_t* k) {
     if (nvs_get_blob(h, "known", blob, &len) == ESP_OK && !known_load(k, blob, len))
         ESP_LOGW(TAG, "saved controllers unreadable; starting with none");
     nvs_close(h);
+    return true;
+}
+
+void store_load(radio_settings_t* s, known_table_t* k) {
+    memset(s, 0, sizeof(*s));
+    known_init(k);
+    if (load_from(NS, s, k) || !load_from(OLD_NS, s, k))
+        return;                                      // (neither: first boot)
+    ESP_LOGI(TAG, "moving the settings from \"%s\" to \"%s\"", OLD_NS, NS);
+    store_save_settings(s);
+    store_save_known(k);
+    nvs_handle_t h;
+    if (nvs_open(OLD_NS, NVS_READWRITE, &h) == ESP_OK) {
+        nvs_erase_all(h);
+        nvs_commit(h);
+        nvs_close(h);
+    }
 }
 
 void store_save_settings(const radio_settings_t* s) {
