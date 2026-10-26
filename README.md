@@ -25,9 +25,8 @@ taken in.
 - `radio/`: firmware for the optional radio co-processor, an ESP32 that adds Bluetooth controllers, phones as
   controllers, a settings page and the time of day. See its [README](radio/README.md).
 - `docs/`: [wiring](docs/wiring.md), [controllers](docs/controllers.md) (the types, and the I2C protocol),
-  [the radio and USB page protocol](docs/protocol.md), [making games](docs/making-games.md),
-  [build notes](docs/build-notes.md) (the bugs and how they were run down), and `rules/`: the rules, one frozen
-  export per version. Older exports, from before the board had its name, call it the Salient board.
+  [the radio and USB page protocol](docs/protocol.md), [making games](docs/making-games.md), and `rules/`: the
+  rules, one frozen export per version. Older exports, from before the board had its name, call it the Salient board.
 
 ## Tests (desktop, from `circuitpython/`)
 

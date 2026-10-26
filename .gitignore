@@ -3,3 +3,5 @@
 __pycache__/
 # editor settings (local)
 .vscode/
+# notes for the Thunderbird Labs build page (local)
+docs/build-notes.md
