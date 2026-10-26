@@ -209,7 +209,9 @@ def settings():
     uart.feed("SET game nosuchgame\nSET colour blue\n")
     h.frame(0.7)
     check("settings: no such game: keeps playing", h.name == "paint")
-    check("settings: game names", host.game_names() == ["clock", "paint", "rush", "salient", "testpattern"], host.game_names())
+    names = host.game_names()                         # (every game in games/: sorted, and adding one mustn't break this)
+    check("settings: game names", names == sorted(names) and
+          {"clock", "paint", "rush", "salient", "testpattern", "fire", "fireflies", "aurora"} <= set(names), names)
 
 
 class FakeChip:

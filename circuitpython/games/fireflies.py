@@ -52,25 +52,6 @@ NIGHT_S = 45.0                           # glowing in step this long, then late
 LONGEST_S = 900.0                        # late anyway, this long after all are out, if they never got in step
 LATE_S = 60.0                            # going out one by one takes this long
 DARK_S = 8.0                             # dark between evenings
-SQRT3_2 = math.sqrt(3) / 2
-
-
-def places(has_lines):
-    """Every island LED as (spot or None, light 0-2 or line number, x, y), in hex widths from the center (as
-    games/clock.py places them)."""
-    step = 0.25 if has_lines else 1.0 / 3
-    out = []
-    for t in range(G.SPOTS):
-        x = G.Q[t] + G.R[t] / 2
-        y = G.R[t] * SQRT3_2
-        for i in range(3):
-            out.append((t, i, x + (i - 1) * step, y))
-    if has_lines:
-        for k in range(G.LINES):
-            r = G.LINE_ROW[k]
-            first = G.ROWS[r][0]
-            out.append((None, k, G.Q[first] + G.R[first] / 2 - 0.5 + G.LINE_COL[k], (r - G.RADIUS) * SQRT3_2))
-    return out
 
 
 def out_by(s, count):
@@ -83,15 +64,14 @@ def out_by(s, count):
 
 
 class Swarm:
-    """The fireflies: each one's place (an index into places), rhythm, phase (0-1, it glows at 1), when it last
+    """The fireflies: each one's place (an index into G.led_places), rhythm, phase (0-1, it glows at 1), when it last
     glowed, and whether it's out. `part` is the part of the evening: dusk, gathering, night, late, dark."""
 
     def __init__(self, has_lines=False, rng=random):
         self.rng = rng
-        self.places = places(has_lines)
+        self.places = G.led_places(has_lines)
         n = len(self.places)
         self.near_place = [[j for j in range(n) if j != i and self.dist(i, j) <= HOP] for i in range(n)]
-        self.answer_place = [[j for j in range(n) if j != i and self.dist(i, j) <= NEAR] for i in range(n)]
         count = n // SHARE
         self.at = []
         free = list(range(n))
@@ -156,7 +136,8 @@ class Swarm:
         g = waiting[int(rng.random() * len(waiting))]
         if self.count_out() < ANSWERS:
             taken = set(self.at[h] for h in range(len(self.at)) if self.out[h])
-            free = [j for j in self.answer_place[self.at[f]] if j not in taken]
+            here = self.at[f]                 # (worked out now, not kept: a list for every LED is a lot of memory)
+            free = [j for j in range(len(self.places)) if j not in taken and j != here and self.dist(here, j) <= NEAR]
             if free:
                 self.at[g] = free[int(rng.random() * len(free))]
             after = ANSWER_AFTER[0] + rng.random() * (ANSWER_AFTER[1] - ANSWER_AFTER[0])

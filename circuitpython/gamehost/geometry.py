@@ -149,6 +149,29 @@ def line_spots(k):
     return tuple(row[i] for i in (c - 1, c) if 0 <= i < len(row))
 
 
+SQRT3_2 = 0.8660254037844386
+
+
+def led_places(has_lines):
+    """Every island LED, where it sits: (spot or None, its light 0-2 or the line number, x, y), in hex widths from
+    the center, x to the right and y down as seen from seat 1. A hex's 3 LEDs are a third of a hex apart on the
+    large board, a quarter on the small, where the line LEDs (spot None) sit on the edges between them; so along a
+    row the LEDs are evenly spaced. For pictures drawn by position (lights.spot and lights.line draw them)."""
+    step = 0.25 if has_lines else 1.0 / 3
+    out = []
+    for t in range(SPOTS):
+        x = Q[t] + R[t] / 2
+        y = R[t] * SQRT3_2
+        for i in range(LEDS_PER_SPOT):
+            out.append((t, i, x + (i - 1) * step, y))
+    if has_lines:
+        for k in range(LINES):
+            r = LINE_ROW[k]
+            first = ROWS[r][0]
+            out.append((None, k, Q[first] + R[first] / 2 - 0.5 + LINE_COL[k], (r - RADIUS) * SQRT3_2))
+    return out
+
+
 # ---- Seats ----
 # The island's corners clockwise from the top-left; seat s faces the side from corner s+2 to corner s+3 (mod 6).
 _CORNERS = ((0, -3), (3, -3), (3, 0), (0, 3), (-3, 3), (-3, 0))

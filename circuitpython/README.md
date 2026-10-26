@@ -37,6 +37,8 @@ They meet in one small interface, the `Game` class in [`gamehost/game.py`](gameh
 | `games/clock.py` | An analog wall clock: the island is the face, the six bars a 60-light minute ring. |
 | `games/fire.py` | Forest fire, an attract screen or wall decoration: the forest grows back and lightning burns it, small fires and now and then a big one; pick calls down lightning. `fire.sim()` runs its rules on a computer to tune them. |
 | `games/fireflies.py` | Fireflies, another attract screen: an evening of fireflies at single LEDs. One alone, then another answers, then more until all are out; they slowly fall into step and glow together, then go out one by one and the next evening starts. Pick starts the evening over. `fireflies.sim()` tunes it. |
+| `games/aurora.py` | Aurora, another attract screen: curtains of northern lights, green at the edge to violet above, building to a display and fading, now and then a surge with a pink fringe. Pick sets off a surge. |
+| `games/rain.py` | Rain, another attract screen: showers on a pond, each drop a ring spreading across every LED, from a few first drops to a downpour and back to still. Pick drops a pebble. |
 | `games/salient/` | Salient: `game.py` (the board's side: setup fields, play UI, the computer's turns), `card.py` (its picture in the game picker), `engine.py` (rules), `ai.py`, `difficulty.py`, `rules.py` (generated; don't edit), `bench.py` (bring-up). |
 | `games/rush/` | Island Rush: `game.py` (setup fields, play UI, the tigers on the lights), `engine.py` (rules), `ai.py` (the computer players), `card.py`. |
 | `tools/` | Desktop only, never copied to the board: tests, the JS / Python replay comparison, the profiler, `gen_rules.js`, `deploy.ps1` (puts the software on the board), `settime.ps1` (sets the board's clock from this computer). |
@@ -91,9 +93,10 @@ same seed plays the same game on both. They import nothing from `gamehost/`.
    `lib/`: `adafruit_neopxl8`, `adafruit_pioasm` and `adafruit_pixelbuf` (or `neopixel` with
    `LED_DRIVER = "neopixel"`).
 2. With the board plugged in: `powershell -ExecutionPolicy Bypass -File tools\deploy.ps1`. It compiles `gamehost/`
-   and every game in a folder (`games/salient/`) to `.mpy` with Adafruit's `mpy-cross` for the board's exact
-   CircuitPython version (downloaded the first time), copies the games in one file (`paint.py`, `clock.py`, ...)
-   as `.py` so they can be edited right on the drive, and copies `code.py` and `Salient.html`. It writes only what
+   and every game to `.mpy` with Adafruit's `mpy-cross` for the board's exact CircuitPython version (downloaded the
+   first time), puts the sources of the games in one file (`paint.py`, `clock.py`, ...) in `games/src/` on the drive
+   to read and change (the board doesn't load them; copy a changed one into `games/`, where a `.py` is loaded before
+   the `.mpy`), and copies `code.py` and `Salient.html`. It writes only what
    changed, removes `.py` copies the new `.mpy` files replace, and never overwrites the drive's `config.py`
    (`-DryRun` says what it would do). Compiling the source on the board itself takes a lot more RAM than running it:
    Salient doesn't fit as `.py`. A small game of your own can just be copied to `games/` as a `.py`. After moving

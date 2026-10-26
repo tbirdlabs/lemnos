@@ -600,6 +600,100 @@ def fireflies():
           any(small.places[p][0] is None for p in range(len(small.places))))
 
 
+def aurora():
+    """games/aurora.py through the host, on both boards: a faint quiet sky, a display building to a peak and
+    fading, pick sets off a surge, the bars show the activity, and nothing jumps: every LED changes gradually."""
+    import random
+    import games.aurora as A
+    for lines in (False, True):
+        sky = A.Sky(lines, random.Random(4))
+        name = "aurora (%s)" % ("small" if lines else "large")
+        quiet = sky.colors()
+        check(name + ": a quiet sky, faint", 0 < max(max(c) for c in quiet) < 60, max(max(c) for c in quiet))
+        now, dt = 0.0, 1.0 / A.DRAW_HZ
+        parts = []
+        worst = 0
+        before = quiet
+        while now < 700:
+            now += dt
+            sky.run(now, dt)
+            if not parts or parts[-1] != sky.part:
+                parts.append(sky.part)
+            after = sky.colors()
+            worst = max(worst, max(abs(a[i] - b[i]) for a, b in zip(before, after) for i in range(3)))
+            before = after
+        check(name + ": quiet, build, peak, fade, quiet", parts[:5] == ["quiet", "build", "peak", "fade", "quiet"], parts)
+        rate = worst * A.DRAW_HZ                          # the fastest any LED changes, levels a second
+        check(name + ": every change gradual (dark to full in 0.2 s at the quickest: slower than the flash limit)",
+              rate < 1200, rate)
+    h = host.Host(host.load_game("aurora"), host.Board(leds.Lights(), Controls(hardware=False)))
+    c = h.board.controls.get("k", "keys", 1, ("pick",))
+    for k in range(40):
+        h.frame(k * 0.05)
+    a0 = h.game.sky.activity()
+    h.board.controls.feed(c, "pick")
+    for k in range(40, 80):
+        h.frame(k * 0.05)
+    g = h.game.sky
+    check("aurora: pick, a surge (swelling) and a display", g.surge > 0.5 and g.part == "build" and g.activity() > a0,
+          (g.surge, g.part))
+    b1 = leds.ISLAND * 3
+    check("aurora: the bars show it", any(h.board.lights.raw[b1:b1 + leds.BAR * 3]))
+
+
+def rain():
+    """games/rain.py, on both boards: a ring reaches every LED by distance and fades; a shower goes still, build,
+    pour, ease, still; pick drops a pebble (twice a second at most); the bars show the rain; nothing jumps."""
+    import random
+    import games.rain as R
+    for lines in (False, True):
+        name = "rain (%s)" % ("small" if lines else "large")
+        pond = R.Pond(lines, random.Random(2))
+        n = pond.n
+        check(name + ": each hex has every LED, nearest first", all(sorted(o) == list(range(n)) for o in pond.order) and
+              all(list(d) == sorted(d) for d in pond.dist))
+        still = pond.colors(0.0)
+        check(name + ": a still pond, faint", all(c == R.COLORS[0] for c in still))
+        pond.rings = [[G.CENTER, 0.0, 1.0, R.LIFE, True]]
+        reached = set()
+        for k in range(1, int(R.LIFE * 20)):
+            reached |= {i for i, c in enumerate(pond.colors(k / 20)) if c != R.COLORS[0]}
+        check(name + ": one ring from the middle reaches every LED", len(reached) == n, (len(reached), n))
+        check(name + ": and is gone when it's done", all(c == R.COLORS[0] for c in pond.colors(R.LIFE)))
+        pond = R.Pond(lines, random.Random(5))
+        now, dt = 0.0, 1.0 / R.DRAW_HZ
+        parts, worst, before = [], 0, pond.colors(0.0)
+        while now < 600:
+            now += dt
+            pond.run(now, dt)
+            if not parts or parts[-1] != pond.part:
+                parts.append(pond.part)
+            after = pond.colors(now)
+            worst = max(worst, max(abs(a[i] - b[i]) for a, b in zip(before, after) for i in range(3)))
+            before = after
+        check(name + ": build, pour, ease, still, build (a shower from the start)",
+              parts[:5] == ["build", "pour", "ease", "still", "build"], parts)
+        check(name + ": it rained", pond.drops > 50, pond.drops)
+        check(name + ": every change gradual (dark to full in 0.2 s at the quickest)", worst * R.DRAW_HZ < 1300,
+              worst * R.DRAW_HZ)
+    h = host.Host(host.load_game("rain"), host.Board(leds.Lights(), Controls(hardware=False)))
+    c = h.board.controls.get("k", "keys", 1, ("pick",))
+    h.frame(0.0)
+    n0 = h.game.pond.drops
+    for _ in range(3):
+        h.board.controls.feed(c, "pick")
+    h.frame(0.05)
+    check("rain: pick drops a pebble, once", h.game.pond.drops == n0 + 1, h.game.pond.drops - n0)
+    p = h.game.pond
+    p.to("pour", 0.1)
+    p.peak = R.PEAK[1]
+    p.lasts = 1e9
+    for k in range(3, 40):
+        h.frame(k * 0.05)
+    b1 = leds.ISLAND * 3
+    check("rain: the bars show it", any(h.board.lights.raw[b1:b1 + leds.BAR * 3]))
+
+
 def test_pattern():
     """games/testpattern.py on both boards, through the host to a pixel object: red lights the LEDs one at a time,
     in place order (rows A-G left to right as seen from seat 1, then bars 1-6 LED 1-10), each on the strip address
@@ -838,6 +932,8 @@ if __name__ == "__main__":
     carried_bars()
     forest_fire()
     fireflies()
+    aurora()
+    rain()
     test_pattern()
     wall_time()
     console()

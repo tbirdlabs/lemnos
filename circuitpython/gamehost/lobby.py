@@ -440,7 +440,8 @@ class Lobby:
             except ImportError:
                 mod = __import__(path, None, None, ["card"])
                 fn = getattr(mod, "card", None)
-        except Exception:                # (MemoryError too: the default card)
+        except Exception as e:           # (MemoryError too: the default card)
+            print("game picker: %s's card didn't load (%r)" % (name, e))
             fn = None
         if not was and name not in self.peeked:
             self.peeked.append(name)

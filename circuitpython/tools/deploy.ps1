@@ -1,7 +1,12 @@
 # Puts the board software on a board's CIRCUITPY drive:
-#   gamehost/ and every game in a folder (games/salient/)   compiled to .mpy (the big parts: no compiling on the
-#                                                          board, which takes more RAM than running them)
-#   games in one file (games/paint.py, clock, ...)         copied as .py, so they can be edited right on the drive
+#   gamehost/ and every game in a folder (games/salient/)   compiled to .mpy (no compiling on the board, which takes
+#                                                          more RAM than running them)
+#   games in one file (games/paint.py, clock, ...)         compiled to .mpy too: the game picker loads a game's card
+#                                                          while another game is running, and compiling a big one
+#                                                          there runs out of memory. Their sources go to games/src/
+#                                                          on the drive, which the board doesn't load: to change one
+#                                                          there, edit it and copy it into games/ (a .py is loaded
+#                                                          before a .mpy)
 #   code.py, Salient.html                                  copied
 #   config.py                                              only if the drive has none: it's the board's own wiring
 # settings.toml, lib/ and anything else on the drive are left alone. Only files that changed are written. A .py on
@@ -63,7 +68,19 @@ try {
         }
     }
 } finally { Pop-Location }
-foreach ($f in Get-ChildItem (Join-Path $src "games") -Filter *.py -File) { $plan["games/$($f.Name)"] = $f.FullName }
+Push-Location $src
+try {
+    foreach ($f in Get-ChildItem (Join-Path $src "games") -Filter *.py -File) {
+        $rel = "games/$($f.Name)"
+        if ($f.Name -eq "__init__.py") { $plan[$rel] = $f.FullName; continue }
+        $out = Join-Path $build ($rel -replace "\.py$", ".mpy")
+        New-Item -ItemType Directory -Force (Split-Path $out) | Out-Null
+        & $exe -o $out $rel
+        if ($LASTEXITCODE -ne 0) { throw "mpy-cross failed on $rel" }
+        $plan[($rel -replace "\.py$", ".mpy")] = $out
+        $plan["games/src/$($f.Name)"] = $f.FullName           # the source, to read and change (not loaded)
+    }
+} finally { Pop-Location }
 $plan["code.py"] = Join-Path $src "code.py"
 $plan["Salient.html"] = Join-Path $src "Salient.html"
 if (-not (Test-Path (Join-Path $root "config.py"))) { $plan["config.py"] = Join-Path $src "config.py" }
@@ -76,7 +93,7 @@ foreach ($rel in $plan.Keys) {
     else { continue }
     if (Test-Path (Join-Path $root $other)) { $remove += $other }
 }
-foreach ($dir in $compiledDirs + @("games")) {
+foreach ($dir in $compiledDirs + @("games", "games/src")) {
     $d = Join-Path $root $dir
     if (-not (Test-Path $d)) { continue }
     foreach ($f in Get-ChildItem $d -File | Where-Object { $_.Extension -in ".py", ".mpy" }) {
